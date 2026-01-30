@@ -20,5 +20,6 @@ func NewAttempt(userId, equationTypeId int, equationText, correctAnswer, userAns
 		EquationText:   equationText,
 		CorrectAnswer:  correctAnswer,
 		UserAnswer:     userAnswer,
+		IsCorrect:      correctAnswer == userAnswer,
 	}
 }
