@@ -2,6 +2,7 @@ package main
 
 import (
 	"edugame/internal/database"
+	"edugame/internal/entity"
 	"edugame/internal/generator"
 	"edugame/internal/repository"
 	"encoding/gob"
@@ -65,7 +66,6 @@ func NewEquationWithID(eq generator.Equation, id int) *EquationWithID {
 		Id: id,
 		Eq: eq,
 	}
-
 }
 
 type EquationData struct {
@@ -124,6 +124,18 @@ func equationHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("  %d: %s (ответ: %s)\n", i+1, eq.Eq.Text, eq.Eq.CorrectAnswer)
 	}
 
+	appSession, err := store.Get(r, "app-session")
+	if err != nil {
+		fmt.Println("Ошибка получения app-сессии:", err)
+	}
+
+	appSession.Values["user_id"] = userId
+	appSession.Values["user_class"] = class
+
+	if err := appSession.Save(r, w); err != nil {
+		fmt.Println("Ошибка сохранения app-сессии:", err)
+	}
+
 	session, _ := store.Get(r, "equations-session")
 	correctAnswers := make(map[int]string)
 	for i, eq := range listEquations {
@@ -175,9 +187,10 @@ func checkAnswersHandler(w http.ResponseWriter, r *http.Request) {
 
 	var request struct {
 		Answers []struct {
-			EquationID   int    `json:"equation_id"`
-			UserAnswer   string `json:"user_answer"`
-			EquationText string `json:"equation_text"`
+			EquationID     int    `json:"equation_id"`
+			UserAnswer     string `json:"user_answer"`
+			EquationText   string `json:"equation_text"`
+			EquationTypeId int    `json:"equation_type_id"`
 		} `json:"answers"`
 	}
 
@@ -188,6 +201,12 @@ func checkAnswersHandler(w http.ResponseWriter, r *http.Request) {
 
 	results := make([]map[string]interface{}, len(request.Answers))
 	correctCount := 0
+	attempts := make([]entity.Attempt, 0)
+	userId, err := getUserIdFromSession(r)
+
+	if err != nil {
+		fmt.Println("ошибка получения id")
+	}
 
 	for i, answer := range request.Answers {
 		correctAnswer, exists := correctAnswers[answer.EquationID]
@@ -206,7 +225,22 @@ func checkAnswersHandler(w http.ResponseWriter, r *http.Request) {
 			"correct_answer": correctAnswer,
 			"feedback":       feedback,
 		}
+
+		fmt.Println(answer.EquationTypeId, answer.EquationText)
+		attempts = append(attempts, entity.NewAttempt(userId, answer.EquationTypeId, answer.EquationText, correctAnswer, answer.UserAnswer))
 	}
+
+	go func() {
+		attemptRepo := repository.NewAttemptRepository(database.DB)
+
+		for _, a := range attempts {
+			err := attemptRepo.SaveAttempt(a)
+			if err != nil {
+				fmt.Println("Error:", err)
+				break
+			}
+		}
+	}()
 
 	response := map[string]interface{}{
 		"total":            len(request.Answers),
@@ -217,4 +251,18 @@ func checkAnswersHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func getUserIdFromSession(r *http.Request) (int, error) {
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		return 0, err
+	}
+
+	userId, ok := session.Values["user_id"].(int)
+	if !ok {
+		return 0, fmt.Errorf("user_id not found in session")
+	}
+
+	return userId, nil
 }

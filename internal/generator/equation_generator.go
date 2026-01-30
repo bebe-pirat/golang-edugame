@@ -23,9 +23,10 @@ type EquationType struct {
 }
 
 type Equation struct {
-	Text          string
-	CorrectAnswer string
-	Class         int
+	Text           string
+	CorrectAnswer  string
+	Class          int
+	EquationTypeId int
 }
 
 type Generator struct {
@@ -73,9 +74,10 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 	}
 
 	return Equation{
-		Text:          eqStr,
-		CorrectAnswer: strconv.Itoa(correctAnswer),
-		Class:         t.Class,
+		Text:           eqStr,
+		CorrectAnswer:  strconv.Itoa(correctAnswer),
+		Class:          t.Class,
+		EquationTypeId: t.ID,
 	}, nil
 }
 

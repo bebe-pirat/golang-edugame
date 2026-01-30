@@ -46,40 +46,6 @@ func (r *UserRepository) CreateSession(userID int) (string, error) {
 	return sessionID, err
 }
 
-// Сохранить попытку решения
-func (r *UserRepository) SaveAttempt(userID int, equationTypeId int, equationText, correctAnswer, userAnswer string, isCorrect bool) error {
-	_, err := r.db.Exec(`
-		INSERT INTO attempts
-		(user_id, equation_type_id, equation_text, correct_answer, user_answer, is_correct, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, userID, equationTypeId, equationText, correctAnswer, userAnswer, isCorrect, time.Now())
-
-	if err != nil {
-		return err
-	}
-
-	if isCorrect {
-		_, err = r.db.Exec(`
-			UPDATE user_progress
-			SET attempts_count = attempts_count + 1,
-			correct_count = correct_count + 1,
-			best_time = 0,
-			last_attempt_at = $1
-			updated_at = $2
-		`, time.Now(), time.Now())
-	} else {
-		_, err = r.db.Exec(`
-			UPDATE user_progress
-			SET attempts_count = attempts_count + 1,
-			best_time = 0,
-			last_attempt_at = $1
-			updated_at = $2
-		`, time.Now(), time.Now())
-	}
-
-	return err
-}
-
 func (r *UserRepository) GetUserProgressBySpecificEqType(userId, equationTypeId int) (entity.UserProgress, error) {
 	var up entity.UserProgress
 

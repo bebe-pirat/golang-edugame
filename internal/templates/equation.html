@@ -14,15 +14,14 @@
             {{ range .Eqs }}
             <li class="equation-item" id="equation-{{ .Id }}">
                 <div>
-                    <p class="equation-text">
+                    <p class="equation-text" data-equation-text="{{ .Eq.Text }}" data-equation-type-id="{{ .Eq.EquationTypeId }}">
                         {{ .Eq.Text }}
                     </p>
                     <input type="text" 
                            class="answer-input" 
                            id="answer-{{ .Id }}" 
                            placeholder="Введите ответ"
-                           data-equation-id="{{ .Id }}"
-                           data-correct-answer="{{ .Eq.CorrectAnswer }}">
+                           data-equation-id="{{ .Id }}">
                     <span class="result" id="result-{{ .Id }}"></span>
                 </div>
             </li>
@@ -47,7 +46,8 @@
                     answers.push({
                         equation_id: parseInt(input.getAttribute('data-equation-id')),
                         user_answer: userAnswer,
-                        equation_text: input.getAttribute('data-equation-text')
+                        equation_text: input.getAttribute('data-equation-text'),
+                        equation_type_id: parseInt(input.getAttribute('data-equation-type-id')),
                     });
                 }
             });
