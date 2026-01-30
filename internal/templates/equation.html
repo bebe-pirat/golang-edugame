@@ -43,11 +43,15 @@
             inputs.forEach(input => {
                 const userAnswer = input.value.trim();
                 if (userAnswer) {
+                    // Находим родительский элемент с нужными data-атрибутами
+                    const equationItem = input.closest('.equation-item');
+                    const equationTextElement = equationItem.querySelector('.equation-text');
+                    
                     answers.push({
                         equation_id: parseInt(input.getAttribute('data-equation-id')),
                         user_answer: userAnswer,
-                        equation_text: input.getAttribute('data-equation-text'),
-                        equation_type_id: parseInt(input.getAttribute('data-equation-type-id')),
+                        equation_text: equationTextElement.getAttribute('data-equation-text'),
+                        equation_type_id: parseInt(equationTextElement.getAttribute('data-equation-type-id')),
                     });
                 }
             });
