@@ -104,6 +104,50 @@ CREATE TABLE IF NOT EXISTS user_progress (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Функция для обработки создания пользователя
+CREATE OR REPLACE FUNCTION create_user_progress_for_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Для каждого типа уравнения, который соответствует классу пользователя
+    INSERT INTO user_progress (user_id, equation_type_id, is_unlocked)
+    SELECT NEW.id, et.id, 
+           CASE WHEN et.class <= NEW.class THEN TRUE ELSE FALSE END
+    FROM equation_types et
+    WHERE et.class = NEW.class  -- создаем только для совпадающих классов
+    ON CONFLICT (user_id, equation_type_id) DO NOTHING;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер на вставку пользователя
+CREATE TRIGGER trigger_create_user_progress
+AFTER INSERT ON users
+FOR EACH ROW
+EXECUTE FUNCTION create_user_progress_for_new_user();
+
+-- Функция для обработки создания типа уравнения
+CREATE OR REPLACE FUNCTION create_user_progress_for_new_equation_type()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Для каждого пользователя с совпадающим классом
+    INSERT INTO user_progress (user_id, equation_type_id, is_unlocked)
+    SELECT u.id, NEW.id, 
+           CASE WHEN NEW.class <= u.class THEN TRUE ELSE FALSE END
+    FROM users u
+    WHERE u.class = NEW.class  -- создаем только для совпадающих классов
+    ON CONFLICT (user_id, equation_type_id) DO NOTHING;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер на вставку типа уравнения
+CREATE TRIGGER trigger_create_user_progress_for_eq_type
+AFTER INSERT ON equation_types
+FOR EACH ROW
+EXECUTE FUNCTION create_user_progress_for_new_equation_type();
+
 -- Индексы для производительности
 CREATE INDEX IF NOT EXISTS idx_attempts_user_id ON attempts(user_id);
 CREATE INDEX IF NOT EXISTS idx_attempts_equation_type_id ON attempts(equation_type_id);
