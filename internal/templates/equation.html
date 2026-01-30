@@ -11,68 +11,113 @@
     {{ else }}
     <section class="container">
         <ul class="equations">
-            {{ range $index, $eq := .Eqs }}
-            <li class="new-eqations" id="equation-{{ $index }}">
+            {{ range .Eqs }}
+            <li class="equation-item" id="equation-{{ .Id }}">
                 <div>
                     <p class="equation-text">
-                        {{ $eq.Text }}
+                        {{ .Eq.Text }}
                     </p>
                     <input type="text" 
                            class="answer-input" 
-                           id="answer-{{ $index }}" 
+                           id="answer-{{ .Id }}" 
                            placeholder="Введите ответ"
-                           data-correct-answer="{{ $eq.CorrectAnswer }}">
-                    <span class="result" id="result-{{ $index }}"></span>
+                           data-equation-id="{{ .Id }}"
+                           data-correct-answer="{{ .Eq.CorrectAnswer }}">
+                    <span class="result" id="result-{{ .Id }}"></span>
                 </div>
             </li>
             {{ end }}
         </ul>
         <button id="check-all-button">Проверить все</button>
+        <span id="overall-result"></span>
     </section>
     {{ end }}
 
     <script>
-        document.getElementById('check-all-button').addEventListener('click', function() {
+        // Функция проверки всех ответов
+        async function checkAllAnswers() {
             const inputs = document.querySelectorAll('.answer-input');
-            inputs.forEach(input => {
-                const id = input.id.split('-')[1];
-                checkAnswer(id);
-            });
-        });
-        
-        function checkAnswer(equationId) {
-            const input = document.getElementById('answer-' + equationId);
-            const resultSpan = document.getElementById('result-' + equationId);
-            const userAnswer = input.value.trim();
-            const correctAnswer = input.getAttribute('data-correct-answer');
+            const answers = [];
+            const overallResult = document.getElementById('overall-result');
             
-            if (!userAnswer) {
-                resultSpan.textContent = '⚠️ Введите ответ';
-                resultSpan.style.color = 'orange';
+            // Собираем все ответы
+            inputs.forEach(input => {
+                const userAnswer = input.value.trim();
+                if (userAnswer) {
+                    answers.push({
+                        equation_id: parseInt(input.getAttribute('data-equation-id')),
+                        user_answer: userAnswer,
+                        equation_text: input.getAttribute('data-equation-text')
+                    });
+                }
+            });
+            
+            if (answers.length === 0) {
+                overallResult.textContent = '⚠️ Нет ответов для проверки';
+                overallResult.style.color = 'orange';
                 return;
             }
             
-            if (userAnswer === correctAnswer) {
-                resultSpan.textContent = '✅ Правильно!';
-                resultSpan.style.color = 'green';
-                input.style.borderColor = 'green';
-            } else {
-                resultSpan.textContent = '❌ Неправильно. Правильный ответ: ' + correctAnswer;
-                resultSpan.style.color = 'red';
-                input.style.borderColor = 'red';
+            // Показываем загрузку
+            overallResult.textContent = '⏳ Проверяем все ответы...';
+            overallResult.style.color = 'gray';
+            
+            try {
+                // Отправляем все ответы на сервер
+                const response = await fetch('/api/check', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ answers: answers })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка сервера');
+                }
+                
+                const data = await response.json();
+                
+                // Отображаем общий результат
+                overallResult.textContent = `📊 ${data.overall_feedback}`;
+                overallResult.style.color = data.correct > 0 ? 'green' : 'red';
+                
+                // Обновляем результаты для каждого уравнения
+                data.results.forEach(result => {
+                    const input = document.getElementById('answer-' + result.equation_id);
+                    const resultSpan = document.getElementById('result-' + result.equation_id);
+                    
+                    if (result.is_correct) {
+                        resultSpan.textContent = '✅ Правильно!';
+                        resultSpan.style.color = 'green';
+                        if (input) input.style.borderColor = 'green';
+                    } else {
+                        resultSpan.textContent = `❌ Неправильно. Правильно: ${result.correct_answer}`;
+                        resultSpan.style.color = 'red';
+                        if (input) input.style.borderColor = 'red';
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Ошибка:', error);
+                overallResult.textContent = '❌ Ошибка при проверке';
+                overallResult.style.color = 'red';
             }
         }
         
+        // Обработчик кнопки "Проверить все"
+        document.getElementById('check-all-button').addEventListener('click', checkAllAnswers);
+        
         // Проверка по нажатию Enter
-        document.addEventListener('keypress', function(e) {
+        document.addEventListener('keypress', async function(e) {
             if (e.key === 'Enter') {
                 const activeElement = document.activeElement;
                 if (activeElement.classList.contains('answer-input')) {
-                    const id = activeElement.id.split('-')[1];
-                    checkAnswer(id);
+                    const equationId = activeElement.getAttribute('data-equation-id');
+                    await checkAnswer(equationId);
                     
                     // Переход к следующему полю
-                    const nextId = parseInt(id) + 1;
+                    const nextId = parseInt(equationId) + 1;
                     const nextInput = document.getElementById('answer-' + nextId);
                     if (nextInput) {
                         nextInput.focus();
