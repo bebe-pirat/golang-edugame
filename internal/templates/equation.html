@@ -1,0 +1,85 @@
+<html>
+  <header>
+    <h1>решай уравнения, дура </h1>
+  </header>
+  <body>   
+    <h2>Уравнения для {{ .Class }} класса</h2>
+    <p>Всего уравнений: {{ len .Eqs }}</p>
+    
+    {{ if eq (len .Eqs) 0 }}
+    <p style="color: red;">⚠️ ATTENTION <br> Уравнения не сгенерированы!</p>
+    {{ else }}
+    <section class="container">
+        <ul class="equations">
+            {{ range $index, $eq := .Eqs }}
+            <li class="new-eqations" id="equation-{{ $index }}">
+                <div>
+                    <p class="equation-text">
+                        {{ $eq.Text }}
+                    </p>
+                    <input type="text" 
+                           class="answer-input" 
+                           id="answer-{{ $index }}" 
+                           placeholder="Введите ответ"
+                           data-correct-answer="{{ $eq.CorrectAnswer }}">
+                    <span class="result" id="result-{{ $index }}"></span>
+                </div>
+            </li>
+            {{ end }}
+        </ul>
+        <button id="check-all-button">Проверить все</button>
+    </section>
+    {{ end }}
+
+    <script>
+        document.getElementById('check-all-button').addEventListener('click', function() {
+            const inputs = document.querySelectorAll('.answer-input');
+            inputs.forEach(input => {
+                const id = input.id.split('-')[1];
+                checkAnswer(id);
+            });
+        });
+        
+        function checkAnswer(equationId) {
+            const input = document.getElementById('answer-' + equationId);
+            const resultSpan = document.getElementById('result-' + equationId);
+            const userAnswer = input.value.trim();
+            const correctAnswer = input.getAttribute('data-correct-answer');
+            
+            if (!userAnswer) {
+                resultSpan.textContent = '⚠️ Введите ответ';
+                resultSpan.style.color = 'orange';
+                return;
+            }
+            
+            if (userAnswer === correctAnswer) {
+                resultSpan.textContent = '✅ Правильно!';
+                resultSpan.style.color = 'green';
+                input.style.borderColor = 'green';
+            } else {
+                resultSpan.textContent = '❌ Неправильно. Правильный ответ: ' + correctAnswer;
+                resultSpan.style.color = 'red';
+                input.style.borderColor = 'red';
+            }
+        }
+        
+        // Проверка по нажатию Enter
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const activeElement = document.activeElement;
+                if (activeElement.classList.contains('answer-input')) {
+                    const id = activeElement.id.split('-')[1];
+                    checkAnswer(id);
+                    
+                    // Переход к следующему полю
+                    const nextId = parseInt(id) + 1;
+                    const nextInput = document.getElementById('answer-' + nextId);
+                    if (nextInput) {
+                        nextInput.focus();
+                    }
+                }
+            }
+        });
+    </script>
+  </body>
+</html>
