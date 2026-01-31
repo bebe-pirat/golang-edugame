@@ -1,38 +1,143 @@
-<html>
-  <header>
-    <h1>решай уравнения, дура </h1>
-  </header>
-  <body>   
-    <h2>Уравнения для {{ .Class }} класса</h2>
-    <p>Всего уравнений: {{ len .Eqs }}</p>
-    
-    {{ if eq (len .Eqs) 0 }}
-    <p style="color: red;">⚠️ ATTENTION <br> Уравнения не сгенерированы!</p>
-    {{ else }}
-    <section class="container">
-        <ul class="equations">
-            {{ range .Eqs }}
-            <li class="equation-item" id="equation-{{ .Id }}">
-                <div>
-                    <p class="equation-text" data-equation-text="{{ .Eq.Text }}" data-equation-type-id="{{ .Eq.EquationTypeId }}">
-                        {{ .Eq.Text }}
-                    </p>
-                    <input type="text" 
-                           class="answer-input" 
-                           id="answer-{{ .Id }}" 
-                           placeholder="Введите ответ"
-                           data-equation-id="{{ .Id }}">
-                    <span class="result" id="result-{{ .Id }}"></span>
-                </div>
-            </li>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Решай примеры!</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="equation-header">
+            <h1><i class="fas fa-calculator"></i> Решай примеры!</h1>
+            <div class="class-info">
+                <p>Класс: <strong>{{ .Class }}</strong></p>
+                <p>Всего примеров: <strong>{{ len .Eqs }}</strong></p>
+            </div>
+        </header>
+        
+        {{ if eq (len .Eqs) 0 }}
+        <div class="no-equations">
+            <i class="fas fa-exclamation-triangle fa-3x"></i>
+            <h2>Примеры не сгенерированы!</h2>
+            <p>Попробуйте обновить страницу или вернуться позже</p>
+            <a href="/" class="btn btn-primary mt-20">
+                <i class="fas fa-home"></i> На главную
+            </a>
+        </div>
+        {{ else }}
+        <div class="equations-container">
+            <ul class="equations-list">
+                {{ range .Eqs }}
+                <li class="equation-item" id="equation-{{ .Id }}">
+                    <div class="equation-text" 
+                         data-equation-text="{{ .Eq.Text }}" 
+                         data-equation-type-id="{{ .Eq.EquationTypeId }}">
+                        {{ .Eq.Text }} 
+                    </div>
+                    
+                    <div class="answer-section">
+                        <input type="text" 
+                               class="answer-input" 
+                               id="answer-{{ .Id }}" 
+                               placeholder="Введите ответ"
+                               data-equation-id="{{ .Id }}"
+                               autocomplete="off">
+                        
+                        <span class="result" id="result-{{ .Id }}"></span>
+                    </div>
+                </li>
+                {{ end }}
+            </ul>
+            
+            <div class="text-center">
+                <button id="check-all-button" class="btn btn-success btn-large">
+                    <i class="fas fa-check-double"></i> Проверить все ответы
+                </button>
+            </div>
+            
+            <div class="overall-result" id="overall-result"></div>
+        </div>
+        {{ end }}
+        
+        <div class="actions-panel">
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-home"></i> На главную
+            </a>
+            <a href="/stats" class="btn btn-secondary">
+                <i class="fas fa-chart-bar"></i> Статистика
+            </a>
+            {{ if gt (len .Eqs) 0 }}
+            <button onclick="window.location.reload()" class="btn btn-secondary">
+                <i class="fas fa-redo"></i> Новые примеры
+            </button>
             {{ end }}
-        </ul>
-        <button id="check-all-button">Проверить все</button>
-        <span id="overall-result"></span>
-    </section>
-    {{ end }}
-
+        </div>
+    </div>
+    
+    <script src="/static/js/app.js"></script>
     <script>
+        // Функция для проверки одного примеры
+        async function checkAnswer(equationId) {
+            const input = document.getElementById('answer-' + equationId);
+            const resultSpan = document.getElementById('result-' + equationId);
+            const equationItem = document.getElementById('equation-' + equationId);
+            const equationTextElement = equationItem.querySelector('.equation-text');
+            
+            if (!input.value.trim()) {
+                showNotification('Введите ответ для примеров', 'warning');
+                input.focus();
+                return;
+            }
+            
+            // Показываем загрузку
+            resultSpan.textContent = '⏳ Проверяем...';
+            resultSpan.className = 'result';
+            input.disabled = true;
+            
+            try {
+                const response = await fetch('/api/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        answers: [{
+                            equation_id: parseInt(equationId),
+                            user_answer: input.value.trim(),
+                            equation_text: equationTextElement.getAttribute('data-equation-text'),
+                            equation_type_id: parseInt(equationTextElement.getAttribute('data-equation-type-id'))
+                        }]
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results[0]) {
+                    const result = data.results[0];
+                    
+                    if (result.is_correct) {
+                        resultSpan.textContent = '✅ Правильно!';
+                        resultSpan.className = 'result correct';
+                        input.style.borderColor = '#2ecc71';
+                        showNotification('Молодец! Правильный ответ!', 'success');
+                    } else {
+                        resultSpan.textContent = `❌ Неправильно. Правильно: ${result.correct_answer}`;
+                        resultSpan.className = 'result incorrect';
+                        input.style.borderColor = '#e74c3c';
+                        showNotification(`Правильный ответ: ${result.correct_answer}`, 'error');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Ошибка:', error);
+                resultSpan.textContent = '❌ Ошибка проверки';
+                resultSpan.className = 'result incorrect';
+                showNotification('Ошибка соединения с сервером', 'error');
+            } finally {
+                input.disabled = false;
+            }
+        }
+        
         // Функция проверки всех ответов
         async function checkAllAnswers() {
             const inputs = document.querySelectorAll('.answer-input');
@@ -43,12 +148,12 @@
             inputs.forEach(input => {
                 const userAnswer = input.value.trim();
                 if (userAnswer) {
-                    // Находим родительский элемент с нужными data-атрибутами
-                    const equationItem = input.closest('.equation-item');
+                    const equationId = input.getAttribute('data-equation-id');
+                    const equationItem = document.getElementById('equation-' + equationId);
                     const equationTextElement = equationItem.querySelector('.equation-text');
                     
                     answers.push({
-                        equation_id: parseInt(input.getAttribute('data-equation-id')),
+                        equation_id: parseInt(equationId),
                         user_answer: userAnswer,
                         equation_text: equationTextElement.getAttribute('data-equation-text'),
                         equation_type_id: parseInt(equationTextElement.getAttribute('data-equation-type-id')),
@@ -57,78 +162,100 @@
             });
             
             if (answers.length === 0) {
-                overallResult.textContent = '⚠️ Нет ответов для проверки';
-                overallResult.style.color = 'orange';
+                showNotification('Введите хотя бы один ответ', 'warning');
                 return;
             }
             
             // Показываем загрузку
             overallResult.textContent = '⏳ Проверяем все ответы...';
-            overallResult.style.color = 'gray';
+            overallResult.style.color = '#6c757d';
+            overallResult.style.background = '#f8f9fa';
+            
+            // Отключаем все поля
+            inputs.forEach(input => input.disabled = true);
             
             try {
-                // Отправляем все ответы на сервер
                 const response = await fetch('/api/check', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ answers: answers })
                 });
                 
-                if (!response.ok) {
-                    throw new Error('Ошибка сервера');
-                }
-                
                 const data = await response.json();
                 
-                // Отображаем общий результат
-                overallResult.textContent = `📊 ${data.overall_feedback}`;
-                overallResult.style.color = data.correct > 0 ? 'green' : 'red';
+                // Обновляем общий результат
+                overallResult.textContent = `📊 Результат: ${data.overall_feedback}`;
+                overallResult.style.background = data.correct > 0 ? '#d4edda' : '#f8d7da';
+                overallResult.style.color = data.correct > 0 ? '#155724' : '#721c24';
                 
-                // Обновляем результаты для каждого уравнения
-                data.results.forEach(result => {
-                    const input = document.getElementById('answer-' + result.equation_id);
-                    const resultSpan = document.getElementById('result-' + result.equation_id);
-                    
-                    if (result.is_correct) {
-                        resultSpan.textContent = '✅ Правильно!';
-                        resultSpan.style.color = 'green';
-                        if (input) input.style.borderColor = 'green';
-                    } else {
-                        resultSpan.textContent = `❌ Неправильно. Правильно: ${result.correct_answer}`;
-                        resultSpan.style.color = 'red';
-                        if (input) input.style.borderColor = 'red';
-                    }
-                });
+                // Обновляем результаты для каждого примеры
+                if (data.results) {
+                    data.results.forEach(result => {
+                        const input = document.getElementById('answer-' + result.equation_id);
+                        const resultSpan = document.getElementById('result-' + result.equation_id);
+                        
+                        if (result.is_correct) {
+                            resultSpan.textContent = '✅ Правильно!';
+                            resultSpan.className = 'result correct';
+                            if (input) input.style.borderColor = '#2ecc71';
+                        } else {
+                            resultSpan.textContent = `❌ Правильно: ${result.correct_answer}`;
+                            resultSpan.className = 'result incorrect';
+                            if (input) input.style.borderColor = '#e74c3c';
+                        }
+                    });
+                }
+                
+                // Показываем уведомление
+                const correctCount = data.correct || 0;
+                const totalCount = answers.length;
+                showNotification(`Правильно ${correctCount} из ${totalCount} (${Math.round(correctCount/totalCount*100)}%)`, 
+                    correctCount === totalCount ? 'success' : 'warning');
                 
             } catch (error) {
                 console.error('Ошибка:', error);
                 overallResult.textContent = '❌ Ошибка при проверке';
-                overallResult.style.color = 'red';
+                overallResult.style.background = '#f8d7da';
+                overallResult.style.color = '#721c24';
+                showNotification('Ошибка соединения', 'error');
+            } finally {
+                // Включаем все поля
+                inputs.forEach(input => input.disabled = false);
             }
         }
         
-        // Обработчик кнопки "Проверить все"
-        document.getElementById('check-all-button').addEventListener('click', checkAllAnswers);
-        
-        // Проверка по нажатию Enter
-        document.addEventListener('keypress', async function(e) {
-            if (e.key === 'Enter') {
-                const activeElement = document.activeElement;
-                if (activeElement.classList.contains('answer-input')) {
-                    const equationId = activeElement.getAttribute('data-equation-id');
-                    await checkAnswer(equationId);
-                    
-                    // Переход к следующему полю
-                    const nextId = parseInt(equationId) + 1;
-                    const nextInput = document.getElementById('answer-' + nextId);
-                    if (nextInput) {
-                        nextInput.focus();
+        // Обработчики событий
+        document.addEventListener('DOMContentLoaded', function() {
+            // Обработчик кнопки "Проверить все"
+            const checkAllBtn = document.getElementById('check-all-button');
+            if (checkAllBtn) {
+                checkAllBtn.addEventListener('click', checkAllAnswers);
+            }
+            
+            // Проверка по Enter для каждого поля
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const activeElement = document.activeElement;
+                    if (activeElement.classList.contains('answer-input')) {
+                        const equationId = activeElement.getAttribute('data-equation-id');
+                        checkAnswer(equationId);
+                        
+                        // Автопереход к следующему полю
+                        const nextId = parseInt(equationId) + 1;
+                        const nextInput = document.getElementById('answer-' + nextId);
+                        if (nextInput) {
+                            nextInput.focus();
+                        }
                     }
                 }
+            });
+            
+            // Фокус на первом поле
+            const firstInput = document.querySelector('.answer-input');
+            if (firstInput) {
+                firstInput.focus();
             }
         });
     </script>
-  </body>
+</body>
 </html>

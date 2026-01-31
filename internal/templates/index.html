@@ -1,10 +1,69 @@
-<html>
-    <header> 
-        <h1> Попытка создать что-то.........</h1>
-    </header>
-    <body>
-        <button> 
-            <a href="/equation">Перейти решать уравнения</a>
-        </button>
-    </body>
+<!-- internal/templates/index.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Математика для школьников</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-brain"></i> Математический Тренажер</h1>
+            <p class="subtitle">Развивай математические навыки в игровой форме</p>
+        </header>
+        
+        <div class="features">
+            <div class="feature">
+                <i class="fas fa-calculator fa-3x"></i>
+                <h3>Умная генерация</h3>
+                <p>Алгоритм подбирает примеры по вашему уровню</p>
+            </div>
+            
+            <div class="feature">
+                <i class="fas fa-chart-line fa-3x"></i>
+                <h3>Прогресс</h3>
+                <p>Следите за своим развитием</p>
+            </div>
+            
+            <div class="feature">
+                <i class="fas fa-gamepad fa-3x"></i>
+                <h3>Игровой формат</h3>
+                <p>Обучение через игру</p>
+            </div>
+        </div>
+        
+        <a href="/equation" class="start-button">
+            <i class="fas fa-play-circle"></i> Новые примеры
+        </a>
+        
+        <div class="instructions">
+            <h3>Как это работает:</h3>
+            <ol>
+                <li>Нажмите "Новые примеры"</li>
+                <li>Решите предложенное </li>
+                <li>Введите ответ в поле</li>
+                <li>Нажмите "Проверить"</li>
+                <li>Получите результат и новые примеры!</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        // Простая анимация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const button = document.querySelector('.start-button');
+            button.style.opacity = '0';
+            button.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                button.style.transition = 'opacity 0.5s, transform 0.5s';
+                button.style.opacity = '1';
+                button.style.transform = 'translateY(0)';
+            }, 300);
+        });
+    </script>
+</body>
 </html>
