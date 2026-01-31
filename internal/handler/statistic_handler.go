@@ -56,17 +56,20 @@ func (h *StatsHandler) StatsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userIDStr := r.URL.Query().Get("user_id")
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil || userID == 0 {
-		userID, err = h.userRepo.GetTestUserId()
-		if err != nil {
-			http.Error(w, "Ошибка создания пользователя", http.StatusInternalServerError)
-			return
-		}
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		fmt.Println("Ошибка получения сессии:", err)
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
 	}
 
-	stats, err := h.userProgressRepo.GetUserAllProgress(userID)
+	userId, ok := session.Values["user_id"].(int)
+	if !ok || userId == 0 {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	stats, err := h.userProgressRepo.GetUserAllProgress(userId)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		http.Error(w, "Ошибка получения статистики", http.StatusInternalServerError)
@@ -82,7 +85,7 @@ func (h *StatsHandler) StatsPage(w http.ResponseWriter, r *http.Request) {
 		"TotalCount":   total,
 		"CorrectCount": correct,
 		"Accuracy":     float64(total) / float64(correct),
-		"UserID":       userID,
+		"UserID":       userId,
 		"UserName":     stats[0].Username,
 	}
 
