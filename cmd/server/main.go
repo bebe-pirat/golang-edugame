@@ -39,6 +39,7 @@ func main() {
 	equationHandler := handler.NewEquationHandler(userRepo, typeRepo)
 	statsHandler := handler.NewStatsHandler(userProgressRepo, userRepo)
 
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("../../internal/static"))))
 	mux.HandleFunc("/", indexHandler.IndexHandler)
 	mux.HandleFunc("/equation", equationHandler.EquationHandler)
 	mux.HandleFunc("/stats", statsHandler.StatsPage)
