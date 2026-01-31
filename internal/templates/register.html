@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - Математика</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="register-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1 class="auth-title">Регистрация</h1>
+            
+            {{if .Error}}
+            <div class="error-message">
+                {{.Error}}
+            </div>
+            {{end}}
+            
+            <form method="POST" action="/auth/register">
+                <div class="form-group">
+                    <label class="form-label" for="username">Логин*</label>
+                    <input type="text" 
+                           id="username" 
+                           name="username" 
+                           class="form-input"
+                           value="{{.Form.Username}}"
+                           required 
+                           autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="email">Email*</label>
+                    <input type="email" 
+                           id="email" 
+                           name="email" 
+                           class="form-input"
+                           value="{{.Form.Email}}"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Пароль*</label>
+                    <input type="password" 
+                           id="password" 
+                           name="password" 
+                           class="form-input"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="full_name">ФИО*</label>
+                    <input type="text" 
+                           id="full_name" 
+                           name="full_name" 
+                           class="form-input"
+                           value="{{.Form.FullName}}"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="role">Роль*</label>
+                    <select id="role" name="role" class="form-select" required>
+                        <option value="">Выберите роль</option>
+                        <option value="student" {{if eq .Form.Role "student" }} selected{{end}}>Ученик</option>
+                        <option value="teacher" {{if eq .Form.Role "teacher" }} selected{{end}}>Учитель</option>
+                    </select>
+                </div>
+                
+                {{if .Classes}}
+                <div class="form-group" id="class-selector" style="display: none;">
+                    <label class="form-label" for="class_id">Класс (только для учеников)</label>
+                    <select id="class_id" name="class_id" class="form-select">
+                        <option value="">Выберите класс</option>
+                        {{range .Classes}}
+                        <option value="{{.ID}}">{{.Name}} ({{.Grade}} класс)</option>
+                        {{end}}
+                    </select>
+                </div>
+                {{end}}
+                
+                <button type="submit" class="btn-register">
+                    Зарегистрироваться
+                </button>
+            </form>
+            
+            <div class="auth-footer">
+                <p>Уже есть аккаунт? 
+                    <a href="/login" class="login-link">Войти</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Показываем выбор класса только для учеников
+        document.getElementById('role').addEventListener('change', function() {
+            const classSelector = document.getElementById('class-selector');
+            if (this.value === 'student') {
+                classSelector.style.display = 'block';
+            } else {
+                classSelector.style.display = 'none';
+            }
+        });
+        
+        // При загрузке проверяем выбранную роль
+        document.addEventListener('DOMContentLoaded', function() {
+            const roleSelect = document.getElementById('role');
+            const classSelector = document.getElementById('class-selector');
+            
+            if (roleSelect.value === 'student') {
+                classSelector.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

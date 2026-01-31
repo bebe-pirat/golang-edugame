@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Математика</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1 class="auth-title">Вход в систему</h1>
+            
+            {{if .Error}}
+            <div class="error-message">
+                {{if eq .Error "invalid_credentials"}}
+                Неверное имя пользователя или пароль
+                {{else if eq .Error "empty_fields"}}
+                Заполните все поля
+                {{else if eq .Error "session_error"}}
+                Ошибка создания сессии
+                {{else}}
+                {{.Error}}
+                {{end}}
+            </div>
+            {{end}}
+            
+            {{if .Message}}
+            <div class="success-message">
+                {{.Message}}
+            </div>
+            {{end}}
+            
+            <form method="POST" action="/login">
+                <div class="form-group">
+                    <label class="form-label" for="username">Логин или Email</label>
+                    <input type="text" 
+                           id="username" 
+                           name="username" 
+                           class="form-input"
+                           value="{{.Form.username}}"
+                           required 
+                           autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Пароль</label>
+                    <input type="password" 
+                           id="password" 
+                           name="password" 
+                           class="form-input"
+                           required>
+                </div>
+                
+                <button type="submit" class="btn-login">
+                    Войти
+                </button>
+            </form>
+            
+            <div class="auth-footer">
+                <p>Нет аккаунта? 
+                    <a href="/register" class="register-link">Зарегистрироваться</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

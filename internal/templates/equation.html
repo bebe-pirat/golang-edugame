@@ -78,66 +78,6 @@
     
     <script src="/static/js/app.js"></script>
     <script>
-        // Функция для проверки одного примеры
-        async function checkAnswer(equationId) {
-            const input = document.getElementById('answer-' + equationId);
-            const resultSpan = document.getElementById('result-' + equationId);
-            const equationItem = document.getElementById('equation-' + equationId);
-            const equationTextElement = equationItem.querySelector('.equation-text');
-            
-            if (!input.value.trim()) {
-                showNotification('Введите ответ для примеров', 'warning');
-                input.focus();
-                return;
-            }
-            
-            // Показываем загрузку
-            resultSpan.textContent = '⏳ Проверяем...';
-            resultSpan.className = 'result';
-            input.disabled = true;
-            
-            try {
-                const response = await fetch('/api/check', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        answers: [{
-                            equation_id: parseInt(equationId),
-                            user_answer: input.value.trim(),
-                            equation_text: equationTextElement.getAttribute('data-equation-text'),
-                            equation_type_id: parseInt(equationTextElement.getAttribute('data-equation-type-id'))
-                        }]
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.results && data.results[0]) {
-                    const result = data.results[0];
-                    
-                    if (result.is_correct) {
-                        resultSpan.textContent = '✅ Правильно!';
-                        resultSpan.className = 'result correct';
-                        input.style.borderColor = '#2ecc71';
-                        showNotification('Молодец! Правильный ответ!', 'success');
-                    } else {
-                        resultSpan.textContent = `❌ Неправильно. Правильно: ${result.correct_answer}`;
-                        resultSpan.className = 'result incorrect';
-                        input.style.borderColor = '#e74c3c';
-                        showNotification(`Правильный ответ: ${result.correct_answer}`, 'error');
-                    }
-                }
-                
-            } catch (error) {
-                console.error('Ошибка:', error);
-                resultSpan.textContent = '❌ Ошибка проверки';
-                resultSpan.className = 'result incorrect';
-                showNotification('Ошибка соединения с сервером', 'error');
-            } finally {
-                input.disabled = false;
-            }
-        }
-        
         // Функция проверки всех ответов
         async function checkAllAnswers() {
             const inputs = document.querySelectorAll('.answer-input');
