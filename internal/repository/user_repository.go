@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"edugame/internal/entity"
 	"time"
 )
 
@@ -22,6 +21,16 @@ func (r *UserRepository) GetTestUserId() (int, error) {
     `, "тест").Scan(&userID)
 
 	return userID, err
+}
+
+// получить имя пользователя по id
+func (r *UserRepository) GetUserNameById(userId int) (string, error) {
+	var username string
+	err := r.db.QueryRow(`
+       SELECT id FROM users WHERE id = ?
+    `, userId).Scan(&username)
+
+	return username, err
 }
 
 // получить класс пользователя тест
@@ -44,129 +53,4 @@ func (r *UserRepository) CreateSession(userID int) (string, error) {
     `, userID, time.Now(), time.Now()).Scan(&sessionID)
 
 	return sessionID, err
-}
-
-func (r *UserRepository) GetUserProgressBySpecificEqType(userId, equationTypeId int) (entity.UserProgress, error) {
-	var up entity.UserProgress
-
-	err := r.db.QueryRow(`
-		SELECT id, 
-			?, 
-			username, 
-			?, 
-			name, 
-			description,
-			attempts_count, 
-			correct_count, 
-			best_time, 
-			is_unlocked, 
-			first_unlocked_at, 
-			last_attempt_at,
-			created_at, updated_at
-		FROM user_progress 
-		JOIN equation_types ON user_progress.equation_type_id = equation_types.id
-		JOIN users ON users.id = user_progress.user_id
-	`, userId, equationTypeId).Scan(
-		&up.Id,
-		&up.UserId,
-		&up.Username,
-		&up.EquationTypeId,
-		&up.EquationTypeName,
-		&up.Description,
-		&up.AttemptsCount,
-		&up.CorrectCount,
-		&up.BestTime,
-		&up.IsUnlocked,
-		&up.FirstUnlockedAt,
-		&up.LastAttemptAt,
-		&up.CreatedAt,
-		&up.UpdatedAt,
-	)
-
-	return up, err
-}
-
-// получить прогресс по всем типам уравнений
-func (r *UserRepository) GetUserAllProgress(userId int) ([]entity.UserProgress, error) {
-	rows, err := r.db.Query(`
-		SELECT id, 
-			?, 
-			username, 
-			equation_type_id, 
-			name, 
-			description,
-			attempts_count, 
-			correct_count, 
-			best_time, 
-			is_unlocked, 
-			first_unlocked_at, 
-			last_attempt_at,
-			created_at, updated_at
-		FROM user_progress 
-		JOIN equation_types ON user_progress.equation_type_id = equation_types.id
-		JOIN users ON users.id = user_progress.user_id
-	`, userId)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	var ups []entity.UserProgress
-
-	for rows.Next() {
-		var up entity.UserProgress
-
-		if err := rows.Scan(&up.Id,
-			&up.UserId,
-			&up.Username,
-			&up.EquationTypeId,
-			&up.EquationTypeName,
-			&up.Description,
-			&up.AttemptsCount,
-			&up.CorrectCount,
-			&up.BestTime,
-			&up.IsUnlocked,
-			&up.FirstUnlockedAt,
-			&up.LastAttemptAt,
-			&up.CreatedAt,
-			&up.UpdatedAt); err != nil {
-			return ups, err
-		}
-
-		ups = append(ups, up)
-	}
-
-	if err = rows.Err(); err != nil {
-		return ups, err
-	}
-
-	return ups, err
-}
-
-// GetWeakTypesId возвращает id тех типов уравнений, в которых пользователь решил менее 70 процентов примеров правильно
-func (r *TypeRepository) GetWeakTypesId(list []entity.UserProgress) ([]int, error) {
-	if len(list) == 0 {
-		return nil, &UserRepositoryError{"No user progress"}
-	}
-
-	weakTypesId := make([]int, 0)
-
-	for _, value := range list {
-		accuracy := float64(value.CorrectCount) / float64(value.AttemptsCount)
-		if accuracy < 0.7 {
-			weakTypesId = append(weakTypesId, value.EquationTypeId)
-		}
-	}
-
-	return weakTypesId, nil
-}
-
-type UserRepositoryError struct {
-	Message string
-}
-
-func (e *UserRepositoryError) Error() string {
-	return "User repository error: " + e.Message
 }
