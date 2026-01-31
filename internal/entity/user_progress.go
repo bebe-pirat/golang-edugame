@@ -1,5 +1,7 @@
 package entity
 
+import "database/sql"
+
 type UserProgress struct {
 	Id               int
 	UserId           int
@@ -9,15 +11,14 @@ type UserProgress struct {
 	Description      string
 	AttemptsCount    int
 	CorrectCount     int
-	BestTime         int
 
 	IsUnlocked bool
 
-	FirstUnlockedAt string
-	LastAttemptAt   string
+	FirstUnlockedAt sql.NullString
+	LastAttemptAt   sql.NullString
 
-	CreatedAt string
-	UpdatedAt string
+	CreatedAt sql.NullString
+	UpdatedAt sql.NullString
 }
 
 // тут нечего делать
