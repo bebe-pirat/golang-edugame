@@ -59,31 +59,45 @@ func NewEquationData(list []EquationWithID, class int) *EquationData {
 }
 
 func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request) {
-	userId, err := e.userRepo.GetTestUserId()
+	session, err := store.Get(r, "app-session")
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Ошибка получения сессии:", err)
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 
-	sessionId, err := e.userRepo.CreateSession(userId)
-	if err != nil {
-		fmt.Println(err, sessionId)
+	userId, ok := session.Values["user_id"].(int)
+	if !ok || userId == 0 {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 
-	class, err := e.userRepo.GetTestClassbyUserId(userId)
+	user, err := e.userRepo.GetByID(userId)
 	if err != nil {
-		fmt.Println(err, sessionId)
+		fmt.Println("Ошибка получения пользователя:", err)
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if user.Role != "student" {
+		http.Error(w, "Доступ запрещен. Только для учеников", http.StatusForbidden)
+		return
+	}
+
+	class, err := e.userRepo.GetStudentClass(userId)
+	if err != nil {
+		fmt.Println("Ошибка получения класс: ", err)
 		return
 	}
 	listTypes, err := e.typeRepo.GetListTypes(class)
 	if err != nil {
-		fmt.Println(err, sessionId)
+		fmt.Println("Ошибка получения типов уравнений:", err)
+		http.Error(w, "Ошибка загрузки уравнений", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Println("Успешно достаны типы уравнений для ", class, "класса")
-	fmt.Println("Количество уравнений: ", len(listTypes))
+    fmt.Printf("Пользователь: %s (ID: %d, Класс: %d)\n", user.Username, userId, class)
+    fmt.Printf("Типы уравнений для %d класса: %d\n", class, len(listTypes))    
 
 	listEquations, err := generateListOfEquations(listTypes)
 	if err != nil {
@@ -97,19 +111,7 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 		fmt.Printf("  %d: %s (ответ: %s)\n", i+1, eq.Eq.Text, eq.Eq.CorrectAnswer)
 	}
 
-	appSession, err := store.Get(r, "app-session")
-	if err != nil {
-		fmt.Println("Ошибка получения app-сессии:", err)
-	}
-
-	appSession.Values["user_id"] = userId
-	appSession.Values["user_class"] = class
-
-	if err := appSession.Save(r, w); err != nil {
-		fmt.Println("Ошибка сохранения app-сессии:", err)
-	}
-
-	session, _ := store.Get(r, "equations-session")
+	session, _ = store.Get(r, "equations-session")
 	correctAnswers := make(map[int]string)
 	for i, eq := range listEquations {
 		correctAnswers[i] = eq.Eq.CorrectAnswer
