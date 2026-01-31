@@ -33,12 +33,15 @@ func main() {
 
 	typeRepo := repository.NewTypeRepository(database.DB)
 	userRepo := repository.NewUserRepository(database.DB)
+	userProgressRepo := repository.NewUserProgressRepository(database.DB)
 
 	indexHandler := handler.NewIndexHandler()
 	equationHandler := handler.NewEquationHandler(userRepo, typeRepo)
+	statsHandler := handler.NewStatsHandler(userProgressRepo, userRepo)
 
 	mux.HandleFunc("/", indexHandler.IndexHandler)
 	mux.HandleFunc("/equation", equationHandler.EquationHandler)
+	mux.HandleFunc("/stats", statsHandler.StatsPage)
 	mux.HandleFunc("/api/check", equationHandler.CheckAnswersHandler)
 
 	fmt.Println("Сервер запустился, дура")
