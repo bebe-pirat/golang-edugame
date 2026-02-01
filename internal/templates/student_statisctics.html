@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика ученика</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar">
+        <a href="/teacher/home" class="nav-brand">🧮 МатТренажер</a>
+        <div class="nav-links">
+            <a href="/teacher/home">На главную</a>
+            <a href="/logout" class="logout-btn">Выйти</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Кнопки действий -->
+        <div class="action-buttons">
+            <a href="javascript:history.back()" class="btn btn-back">← Назад</a>
+        </div>
+
+        <!-- Информация об ученике -->
+        {{with .student_info}}
+        <div class="student-header">
+            <div class="student-avatar">
+                {{if .fullname}}
+                    {{slice .fullname 0 1}}
+                {{else}}
+                    👤
+                {{end}}
+            </div>
+            <div class="student-info">
+                <h1>{{.fullname}}</h1>
+                <p style="color: #7f8c8d;">Ученик математического тренажера</p>
+                
+                <div class="student-meta">
+                    <div class="meta-item">
+                        <span>👤</span>
+                        <span>{{.username}}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span>📧</span>
+                        <span>{{.email}}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span>📅</span>
+                        <span>Зарегистрирован: {{.created_at}}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Общая статистика -->
+        {{with .overall}}
+        <div class="overall-stats">
+            <div class="overall-card attempts-stat">
+                <div class="stat-icon">📝</div>
+                <div class="stat-value">{{.total_attempts}}</div>
+                <div class="stat-label">Всего попыток</div>
+            </div>
+            
+            <div class="overall-card correct-stat">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value">{{.correct_attempts}}</div>
+                <div class="stat-label">Правильных ответов</div>
+            </div>
+            
+            <div class="overall-card accuracy-stat">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-value">{{printf "%.1f" .accuracy}}%</div>
+                <div class="stat-label">Общая точность</div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Статистика по типам уравнений -->
+        <div class="types-section">
+            <h2 class="section-title">📈 Статистика по типам уравнений</h2>
+            {{if .type_statistics}}
+            <table class="types-table">
+                <thead>
+                    <tr>
+                        <th>Тип уравнения</th>
+                        <th>Класс</th>
+                        <th>Попыток</th>
+                        <th>Верно</th>
+                        <th>Точность</th>
+                        <th>Последняя попытка</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .type_statistics}}
+                    <tr>
+                        <td>{{.type_name}}</td>
+                        <td>{{.class}}</td>
+                        <td>{{.attempts}}</td>
+                        <td>{{.correct}}</td>
+                        <td class="progress-cell">
+                            <div class="progress-container">
+                                <div class="progress-bar">
+                                    <!-- <div class="progress-fill" style="width: {{.accuracy}}%;"></div> -->
+                                </div>
+                                <div class="progress-text">
+                                    {{printf "%.1f" .accuracy}}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{.last_attempt}}</td>
+                        <td>
+                            {{if gt .attempts 0}}
+                            <a href="/teacher/student/attempts?student_id={{$.student_info.id}}&type_id={{.type_id}}" 
+                               class="type-link">
+                                Показать попытки
+                            </a>
+                            {{else}}
+                            <span class="status-badge status-none">Нет попыток</span>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <p style="text-align: center; color: #7f8c8d; padding: 2rem;">
+                Ученик пока не решал уравнения
+            </p>
+            {{end}}
+        </div>
+
+        <!-- Последние попытки -->
+        {{if .recent_attempts}}
+        <div class="attempts-section">
+            <h2 class="section-title">⏱️ Последние попытки</h2>
+            <div class="attempts-list">
+                {{range .recent_attempts}}
+                <div class="attempt-item {{if .is_correct}}correct{{else}}incorrect{{end}}">
+                    <div class="attempt-header">
+                        <div class="attempt-type">{{.type_name}}</div>
+                        <div class="attempt-date">{{.created_at}}</div>
+                    </div>
+                    
+                    <div class="attempt-equation">
+                        {{.equation_text}}
+                    </div>
+                    
+                    <div class="attempt-result {{if .is_correct}}correct-result{{else}}incorrect-result{{end}}">
+                        {{if .is_correct}}
+                        ✅ Правильно: {{.user_answer}}
+                        {{else}}
+                        ❌ Ответ: {{.user_answer}} (верно: {{.correct_answer}})
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+
+    <script>
+
+        // Анимация графиков
+        document.addEventListener('DOMContentLoaded', function() {
+            const chartBars = document.querySelectorAll('.chart-bar');
+            chartBars.forEach(bar => {
+                const height = bar.style.height;
+                bar.style.height = '0%';
+                setTimeout(() => {
+                    bar.style.height = height;
+                }, 100);
+            });
+        });
+    </script>
+</body>
+</html>

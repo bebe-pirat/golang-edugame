@@ -24,13 +24,22 @@ func NewLoginHandler(userRepo *repository.UserRepository) *LoginHandler {
 	}
 }
 
-// LoginPage - показывает страницу входа (GET запрос)
 func (h *LoginHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
-	// Проверяем, если пользователь уже авторизован
 	session, _ := store.Get(r, "app-session")
 	if userID, ok := session.Values["user_id"].(int); ok && userID > 0 {
-		// Уже авторизован - редирект на домашнюю
-		http.Redirect(w, r, "/home", http.StatusSeeOther)
+		role, ok := session.Values["role"].(string)
+		if !ok {
+			role = "student"
+		}
+
+		switch role {
+		case "teacher":
+			http.Redirect(w, r, "/teacher_home", http.StatusSeeOther)
+		case "student":
+			http.Redirect(w, r, "/home", http.StatusSeeOther)
+		default:
+			http.Redirect(w, r, "/home", http.StatusSeeOther)
+		}
 		return
 	}
 
@@ -46,7 +55,6 @@ func (h *LoginHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	h.tmpl.Execute(w, data)
 }
 
-// Login - обрабатывает отправку формы входа (POST запрос)
 func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.LoginPage(w, r)
@@ -61,13 +69,11 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 
-	// Валидация
 	if username == "" || password == "" {
 		http.Redirect(w, r, "/login?error=empty_fields&username="+username, http.StatusSeeOther)
 		return
 	}
 
-	// Аутентификация
 	user, err := h.userRepo.Login(username, password)
 	if err != nil {
 		fmt.Printf("Ошибка входа для пользователя %s: %v\n", username, err)
@@ -75,7 +81,6 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Создаем сессию в БД
 	sessionToken, err := h.userRepo.CreateSession(user.ID)
 	if err != nil {
 		fmt.Printf("Ошибка создания сессии для пользователя %d: %v\n", user.ID, err)
@@ -83,7 +88,6 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Устанавливаем cookie с сессией БД
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
 		Value:    sessionToken,
@@ -93,28 +97,26 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	// Создаем сессию приложения (Gorilla sessions)
 	session, _ := store.Get(r, "app-session")
 	session.Values["user_id"] = user.ID
 	session.Values["username"] = user.Username
 	session.Values["role"] = user.Role
 	session.Values["full_name"] = user.FullName
 
-	// Сохраняем сессию
 	if err := session.Save(r, w); err != nil {
 		fmt.Printf("Ошибка сохранения сессии Gorilla: %v\n", err)
-		// Не прерываем процесс, продолжаем
 	}
 
 	fmt.Printf("Успешный вход: %s (ID: %d, Роль: %s)\n",
 		user.Username, user.ID, user.Role)
 
-	// Редирект в зависимости от роли
 	switch user.Role {
 	case "student":
+		fmt.Println("hello")
 		http.Redirect(w, r, "/home", http.StatusSeeOther)
-	// case "teacher":
-	// 	http.Redirect(w, r, "/teacher/dashboard", http.StatusSeeOther)
+	case "teacher":
+		fmt.Println("1ghfdhf")
+		http.Redirect(w, r, "/teacher_home", http.StatusSeeOther)
 	// case "admin":
 	// 	http.Redirect(w, r, "/admin/dashboard", http.StatusSeeOther)
 	default:

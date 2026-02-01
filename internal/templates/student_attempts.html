@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Попытки ученика</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/teacher/home" class="nav-brand">🧮 МатТренажер</a>
+        <div class="nav-links">
+            <a href="/teacher/home">На главную</a>
+            <a href="/logout" class="logout-btn">Выйти</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="action-buttons">
+            <a href="/teacher/student?student_id={{.StudentInfo.id}}" class="btn btn-back">
+                ← Назад к статистике ученика
+            </a>
+        </div>
+
+        <div class="header">
+            <h1 class="page-title">📝 Попытки ученика: {{.StudentInfo.fullname}}</h1>
+            <p>Всего попыток: {{len .Attempts}}</p>
+        </div>
+
+        <div class="attempts-list">
+            {{range .Attempts}}
+            <div class="attempt-item {{if .is_correct}}{{else}}incorrect{{end}}">
+                <div class="attempt-header">
+                    <div class="attempt-status {{if .is_correct}}status-correct{{else}}status-incorrect{{end}}">
+                        {{if .is_correct}}✅ Правильно{{else}}❌ Неправильно{{end}}
+                    </div>
+                    <div class="attempt-date">{{.created_at}}</div>
+                </div>
+
+                <div class="equation-box">
+                    {{.equation_text}}
+                </div>
+
+                <div class="answers">
+                    <div class="answer-box correct">
+                        <div class="answer-label">Правильный ответ:</div>
+                        <div class="answer-value">{{.correct_answer}}</div>
+                    </div>
+                    <div class="answer-box user">
+                        <div class="answer-label">Ответ ученика:</div>
+                        <div class="answer-value">{{.user_answer}}</div>
+                    </div>
+                </div>
+
+                {{if not .is_correct}}
+                <div class="feedback">
+                    <strong>Рекомендация:</strong> Обратите внимание на правила решения уравнений этого типа
+                </div>
+                {{end}}
+            </div>
+            {{else}}
+            <div style="text-align: center; padding: 3rem; color: #7f8c8d;">
+                <p style="font-size: 1.2rem;">Нет попыток по этому типу уравнений</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</body>
+</html>

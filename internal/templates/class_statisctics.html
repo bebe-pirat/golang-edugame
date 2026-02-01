@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика класса</title>
+    
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar">
+        <a href="/teacher/home" class="nav-brand">🧮 МатТренажер</a>
+        <div class="nav-links">
+            <a href="/teacher/home">На главную</a>
+            <a href="/logout" class="logout-btn">Выйти</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Заголовок -->
+        <div class="header">
+            <h1 class="page-title">📊 Статистика класса</h1>
+            <p class="page-subtitle">ID класса: {{.ClassID}}</p>
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="action-buttons">
+            <a href="/teacher/home" class="btn btn-back">← Назад к классам</a>
+        </div>
+
+        <!-- Общая статистика -->
+        {{with .Stats}}
+        <div class="stats-grid">
+            <div class="stat-card students-stat">
+                <div class="stat-icon">👥</div>
+                <div class="stat-value">{{.student_count}}</div>
+                <div class="stat-label">Учеников в классе</div>
+            </div>
+            
+            <div class="stat-card attempts-stat">
+                <div class="stat-icon">📝</div>
+                <div class="stat-value">{{.total_attempts}}</div>
+                <div class="stat-label">Всего попыток</div>
+            </div>
+            
+            <div class="stat-card correct-stat">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value">{{.correct_attempts}}</div>
+                <div class="stat-label">Правильных ответов</div>
+            </div>
+            
+            <div class="stat-card accuracy-stat">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-value">{{printf "%.1f" .accuracy_percent}}%</div>
+                <div class="stat-label">Общая точность</div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Топ учеников -->
+        {{if .Stats.top_students}}
+        <div class="top-students">
+            <h3>🏆 Лучшие ученики по точности</h3>
+            <div class="top-list">
+                {{range .Stats.top_students}}
+                <div class="top-item">
+                    <div class="top-rank">{{.accuracy}}%</div>
+                    <div style="font-weight: bold; margin: 0.5rem 0;">{{.name}}</div>
+                    <div style="font-size: 0.9rem; color: #666;">
+                        {{.correct}}/{{.total}} верно
+                    </div>
+                    <a href="/teacher/student?student_id={{.id}}" class="student-link" style="display: inline-block; margin-top: 0.5rem;">
+                        Подробнее →
+                    </a>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Ученики класса -->
+        <div class="students-section">
+            <h2 class="section-title">👥 Ученики класса</h2>
+            {{if .Students}}
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th>ФИО</th>
+                        <th>Логин</th>
+                        <th>Email</th>
+                        <th>Статистика</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Students}}
+                    <tr>
+                        <td>{{.FullName}}</td>
+                        <td>{{.Username}}</td>
+                        <td>{{.Email}}</td>
+                        <td>
+                            <a href="/teacher/student?student_id={{.ID}}" class="student-link">
+                                Показать статистику
+                            </a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <p style="text-align: center; color: #7f8c8d; padding: 2rem;">
+                В классе пока нет учеников
+            </p>
+            {{end}}
+        </div>
+
+        <!-- Статистика по типам уравнений -->
+        {{if .Stats.type_statistics}}
+        <div class="types-section">
+            <h2 class="section-title">📈 Статистика по типам уравнений</h2>
+            <div class="types-grid">
+                {{range .Stats.type_statistics}}
+                <div class="type-card">
+                    <div class="type-header">
+                        <div class="type-name">{{.type_name}}</div>
+                    </div>
+                    
+                    <div class="type-stats">
+                        <div class="type-stat">
+                            <div class="type-stat-value">{{.attempts}}</div>
+                            <div class="type-stat-label">Попыток</div>
+                        </div>
+                        <div class="type-stat">
+                            <div class="type-stat-value">{{.correct}}</div>
+                            <div class="type-stat-label">Верно</div>
+                        </div>
+                        <div class="type-stat">
+                            <div class="type-stat-value">{{printf "%.1f" .accuracy}}%</div>
+                            <div class="type-stat-label">Точность</div>
+                        </div>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+</body>
+</html>

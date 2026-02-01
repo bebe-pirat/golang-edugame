@@ -122,8 +122,8 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	switch user.Role {
 	case "student":
 		http.Redirect(w, r, "/home", http.StatusSeeOther)
-	// case "teacher":
-	// 	http.Redirect(w, r, "/teacher/dashboard", http.StatusSeeOther)
+	case "teacher":
+		http.Redirect(w, r, "/teacher_home", http.StatusSeeOther)
 	// case "admin":
 	// 	http.Redirect(w, r, "/admin/dashboard", http.StatusSeeOther)
 	default:

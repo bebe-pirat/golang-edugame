@@ -96,8 +96,8 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-    fmt.Printf("Пользователь: %s (ID: %d, Класс: %d)\n", user.Username, userId, class)
-    fmt.Printf("Типы уравнений для %d класса: %d\n", class, len(listTypes))    
+	fmt.Printf("Пользователь: %s (ID: %d, Класс: %d)\n", user.Username, userId, class)
+	fmt.Printf("Типы уравнений для %d класса: %d\n", class, len(listTypes))
 
 	listEquations, err := generateListOfEquations(listTypes)
 	if err != nil {

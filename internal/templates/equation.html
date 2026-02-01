@@ -15,6 +15,9 @@
                 <p>Класс: <strong>{{ .Class }}</strong></p>
                 <p>Всего примеров: <strong>{{ len .Eqs }}</strong></p>
             </div>
+            <nav> 
+                <a href="/logout">Выйти</a>
+            </nav>
         </header>
         
         {{ if eq (len .Eqs) 0 }}

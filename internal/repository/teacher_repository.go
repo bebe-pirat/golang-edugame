@@ -1,0 +1,806 @@
+// internal/repository/teacher_repository.go
+package repository
+
+import (
+	"database/sql"
+	"time"
+)
+
+type TeacherRepository struct {
+	db *sql.DB
+}
+
+func NewTeacherRepository(db *sql.DB) *TeacherRepository {
+	return &TeacherRepository{db: db}
+}
+
+// Получить классы учителя
+func (r *TeacherRepository) GetTeacherClasses(teacherID int) ([]struct {
+	ID    int
+	Name  string
+	Grade int
+}, error) {
+	query := `
+		SELECT id, name, grade 
+		FROM classes 
+		WHERE teacher_id = $1
+		ORDER BY grade, name
+	`
+
+	rows, err := r.db.Query(query, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var classes []struct {
+		ID    int
+		Name  string
+		Grade int
+	}
+
+	for rows.Next() {
+		var class struct {
+			ID    int
+			Name  string
+			Grade int
+		}
+		if err := rows.Scan(&class.ID, &class.Name, &class.Grade); err != nil {
+			return nil, err
+		}
+		classes = append(classes, class)
+	}
+
+	return classes, nil
+}
+
+// Получить учеников класса
+func (r *TeacherRepository) GetClassStudents(classID int) ([]struct {
+	ID       int
+	Username string
+	FullName string
+	Email    string
+}, error) {
+	query := `
+		SELECT u.id, u.username, u.fullname, u.email
+		FROM users u
+		JOIN student_classes sc ON u.id = sc.student_id
+		WHERE sc.class_id = $1 AND u.role = 'student'
+		ORDER BY u.fullname
+	`
+
+	rows, err := r.db.Query(query, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []struct {
+		ID       int
+		Username string
+		FullName string
+		Email    string
+	}
+
+	for rows.Next() {
+		var student struct {
+			ID       int
+			Username string
+			FullName string
+			Email    string
+		}
+		if err := rows.Scan(&student.ID, &student.Username, &student.FullName, &student.Email); err != nil {
+			return nil, err
+		}
+		students = append(students, student)
+	}
+
+	return students, nil
+}
+// Получить статистику по классу
+func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interface{}, error) {
+    stats := make(map[string]interface{})
+
+    // Основная статистика класса
+    query := `
+        SELECT 
+            COUNT(DISTINCT u.id) as student_count,
+            COUNT(DISTINCT a.id) as total_attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts
+        FROM users u
+        LEFT JOIN attempts a ON u.id = a.user_id
+        JOIN student_classes sc ON u.id = sc.student_id
+        WHERE sc.class_id = $1 AND u.role = 'student'
+    `
+
+    var studentCount, totalAttempts, correctAttempts int
+    err := r.db.QueryRow(query, classID).Scan(&studentCount, &totalAttempts, &correctAttempts)
+    if err != nil {
+        return nil, err
+    }
+
+    stats["student_count"] = studentCount
+    stats["total_attempts"] = totalAttempts
+    stats["correct_attempts"] = correctAttempts
+
+    if totalAttempts > 0 {
+        stats["accuracy_percent"] = float64(correctAttempts) / float64(totalAttempts) * 100
+    } else {
+        stats["accuracy_percent"] = 0
+    }
+
+    // Активность по дням (последние 7 дней)
+    activityQuery := `
+        SELECT 
+            DATE(a.created_at) as date,
+            COUNT(*) as attempts,
+            SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END) as correct
+        FROM attempts a
+        JOIN users u ON a.user_id = u.id
+        JOIN student_classes sc ON u.id = sc.student_id
+        WHERE sc.class_id = $1 
+          AND a.created_at >= CURRENT_DATE - INTERVAL '7 days'
+        GROUP BY DATE(a.created_at)
+        ORDER BY date DESC
+    `
+
+    rows, err := r.db.Query(activityQuery, classID)
+    if err == nil {
+        defer rows.Close()
+
+        var activity []map[string]interface{}
+        for rows.Next() {
+            var date time.Time
+            var attempts, correct int
+
+            if err := rows.Scan(&date, &attempts, &correct); err != nil {
+                continue
+            }
+
+            activity = append(activity, map[string]interface{}{
+                "date":     date.Format("02.01"),
+                "attempts": attempts,
+                "correct":  correct,
+                "accuracy": func() float64 {
+                    if attempts > 0 {
+                        return float64(correct) / float64(attempts) * 100
+                    }
+                    return 0
+                }(),
+            })
+        }
+        stats["activity"] = activity
+    }
+
+    // Статистика по типам уравнений
+    typeStatsQuery := `
+        SELECT 
+            et.name as type_name,
+            COUNT(a.id) as attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct
+        FROM equation_types et
+        LEFT JOIN attempts a ON et.id = a.equation_type_id
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN student_classes sc ON u.id = sc.student_id
+        WHERE sc.class_id = $1
+        GROUP BY et.id, et.name
+        HAVING COUNT(a.id) > 0
+        ORDER BY attempts DESC
+    `
+
+    typeRows, err := r.db.Query(typeStatsQuery, classID)
+    if err == nil {
+        defer typeRows.Close()
+
+        var typeStats []map[string]interface{}
+        for typeRows.Next() {
+            var typeName string
+            var attempts, correct int
+
+            if err := typeRows.Scan(&typeName, &attempts, &correct); err != nil {
+                continue
+            }
+
+            typeStats = append(typeStats, map[string]interface{}{
+                "type_name": typeName,
+                "attempts":  attempts,
+                "correct":   correct,
+                "accuracy": func() float64 {
+                    if attempts > 0 {
+                        return float64(correct) / float64(attempts) * 100
+                    }
+                    return 0
+                }(),
+            })
+        }
+        stats["type_statistics"] = typeStats
+    }
+
+    // Топ учеников
+    topStudentsQuery := `
+        SELECT 
+            u.id,
+            u.fullname,
+            COUNT(a.id) as total_attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts
+        FROM users u
+        LEFT JOIN attempts a ON u.id = a.user_id
+        JOIN student_classes sc ON u.id = sc.student_id
+        WHERE sc.class_id = $1
+        GROUP BY u.id, u.fullname
+        ORDER BY correct_attempts DESC
+        LIMIT 5
+    `
+
+    studentRows, err := r.db.Query(topStudentsQuery, classID)
+    if err == nil {
+        defer studentRows.Close()
+
+        var topStudents []map[string]interface{}
+        for studentRows.Next() {
+            var studentID, total, correct int
+            var fullname string
+
+            if err := studentRows.Scan(&studentID, &fullname, &total, &correct); err != nil {
+                continue
+            }
+
+            topStudents = append(topStudents, map[string]interface{}{
+                "id":      studentID,
+                "name":    fullname,
+                "total":   total,
+                "correct": correct,
+                "accuracy": func() float64 {
+                    if total > 0 {
+                        return float64(correct) / float64(total) * 100
+                    }
+                    return 0
+                }(),
+            })
+        }
+        stats["top_students"] = topStudents
+    }
+
+    return stats, nil
+}
+
+// Получить статистику ученика
+func (r *TeacherRepository) GetStudentStatistics(studentID int) (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	// Информация об ученике
+	studentQuery := `
+		SELECT u.username, u.fullname, u.email, u.created_at
+		FROM users u
+		WHERE u.id = $1
+	`
+
+	var username, fullname, email, createdAt string
+	err := r.db.QueryRow(studentQuery, studentID).Scan(&username, &fullname, &email, &createdAt)
+	if err != nil {
+		return nil, err
+	}
+
+	stats["student_info"] = map[string]interface{}{
+		"id":         studentID,
+		"username":   username,
+		"fullname":   fullname,
+		"email":      email,
+		"created_at": createdAt,
+	}
+
+	// Общая статистика
+	overallQuery := `
+		SELECT 
+			COUNT(*) as total_attempts,
+			COALESCE(SUM(CASE WHEN is_correct THEN 1 ELSE 0 END), 0) as correct_attempts
+		FROM attempts
+		WHERE user_id = $1
+	`
+
+	var totalAttempts, correctAttempts int
+	err = r.db.QueryRow(overallQuery, studentID).Scan(&totalAttempts, &correctAttempts)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	stats["overall"] = map[string]interface{}{
+		"total_attempts":   totalAttempts,
+		"correct_attempts": correctAttempts,
+		"accuracy": func() float64 {
+			if totalAttempts > 0 {
+				return float64(correctAttempts) / float64(totalAttempts) * 100
+			}
+			return 0
+		}(),
+	}
+
+	// Статистика по типам уравнений
+	typeStatsQuery := `
+		SELECT 
+			et.id as type_id,
+			et.name as type_name,
+			et.class,
+			COUNT(a.id) as attempts,
+			SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END) as correct,
+			MAX(a.created_at) as last_attempt
+		FROM equation_types et
+		LEFT JOIN attempts a ON et.id = a.equation_type_id AND a.user_id = $1
+		GROUP BY et.id, et.name, et.class
+		ORDER BY et.class, et.name
+	`
+
+	rows, err := r.db.Query(typeStatsQuery, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var typeStats []map[string]interface{}
+	for rows.Next() {
+		var typeID, class, attempts, correct int
+		var typeName string
+		var lastAttempt sql.NullTime
+
+		if err := rows.Scan(&typeID, &typeName, &class, &attempts, &correct, &lastAttempt); err != nil {
+			continue
+		}
+
+		typeStats = append(typeStats, map[string]interface{}{
+			"type_id":   typeID,
+			"type_name": typeName,
+			"class":     class,
+			"attempts":  attempts,
+			"correct":   correct,
+			"accuracy": func() float64 {
+				if attempts > 0 {
+					return float64(correct) / float64(attempts) * 100
+				}
+				return 0
+			}(),
+			"last_attempt": func() string {
+				if lastAttempt.Valid {
+					return lastAttempt.Time.Format("02.01.2006 15:04")
+				}
+				return "Не решал"
+			}(),
+		})
+	}
+
+	stats["type_statistics"] = typeStats
+
+	// Последние попытки
+	recentAttemptsQuery := `
+		SELECT 
+			a.id,
+			a.equation_text,
+			a.correct_answer,
+			a.user_answer,
+			a.is_correct,
+			a.created_at,
+			et.name as type_name
+		FROM attempts a
+		JOIN equation_types et ON a.equation_type_id = et.id
+		WHERE a.user_id = $1
+		ORDER BY a.created_at DESC
+		LIMIT 10
+	`
+
+	attemptRows, err := r.db.Query(recentAttemptsQuery, studentID)
+	if err == nil {
+		defer attemptRows.Close()
+
+		var recentAttempts []map[string]interface{}
+		for attemptRows.Next() {
+			var id int
+			var equationText, correctAnswer, userAnswer, typeName string
+			var isCorrect bool
+			var createdAt time.Time
+
+			if err := attemptRows.Scan(&id, &equationText, &correctAnswer, &userAnswer, &isCorrect, &createdAt, &typeName); err != nil {
+				continue
+			}
+
+			recentAttempts = append(recentAttempts, map[string]interface{}{
+				"id":             id,
+				"equation_text":  equationText,
+				"correct_answer": correctAnswer,
+				"user_answer":    userAnswer,
+				"is_correct":     isCorrect,
+				"created_at":     createdAt.Format("02.01 15:04"),
+				"type_name":      typeName,
+			})
+		}
+		stats["recent_attempts"] = recentAttempts
+	}
+
+	return stats, nil
+}
+
+// Получить попытки ученика по типу уравнения
+func (r *TeacherRepository) GetStudentAttemptsByType(studentID, typeID int) ([]map[string]interface{}, error) {
+	query := `
+		SELECT 
+			a.id,
+			a.equation_text,
+			a.correct_answer,
+			a.user_answer,
+			a.is_correct,
+			a.created_at
+		FROM attempts a
+		WHERE a.user_id = $1 AND a.equation_type_id = $2
+		ORDER BY a.created_at DESC
+	`
+
+	rows, err := r.db.Query(query, studentID, typeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var attempts []map[string]interface{}
+	for rows.Next() {
+		var id int
+		var equationText, correctAnswer, userAnswer string
+		var isCorrect bool
+		var createdAt time.Time
+
+		if err := rows.Scan(&id, &equationText, &correctAnswer, &userAnswer, &isCorrect, &createdAt); err != nil {
+			continue
+		}
+
+		attempts = append(attempts, map[string]interface{}{
+			"id":             id,
+			"equation_text":  equationText,
+			"correct_answer": correctAnswer,
+			"user_answer":    userAnswer,
+			"is_correct":     isCorrect,
+			"created_at":     createdAt.Format("02.01.2006 15:04"),
+			"status": func() string {
+				if isCorrect {
+					return "✅ Правильно"
+				}
+				return "❌ Неправильно"
+			}(),
+			"status_class": func() string {
+				if isCorrect {
+					return "correct"
+				}
+				return "incorrect"
+			}(),
+		})
+	}
+
+	return attempts, nil
+}
+
+// Получить подробную статистику по классу
+func (r *TeacherRepository) GetDetailedClassStatistics(classID int) (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	classStats, err := r.GetClassStatistics(classID)
+	if err != nil {
+		return nil, err
+	}
+
+	students, err := r.GetClassStudentsWithStats(classID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем детальную статистику по типам уравнений
+	detailedTypeStats, err := r.GetClassTypeStatistics(classID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем таблицу успеваемости (каждый ученик по каждому типу)
+	performanceTable, err := r.GetClassPerformanceTable(classID)
+	if err != nil {
+		return nil, err
+	}
+
+	stats["overall_stats"] = classStats
+	stats["students"] = students
+	stats["detailed_type_stats"] = detailedTypeStats
+	stats["performance_table"] = performanceTable
+
+	return stats, nil
+}
+
+// Получить учеников класса со статистикой
+func (r *TeacherRepository) GetClassStudentsWithStats(classID int) ([]map[string]interface{}, error) {
+	query := `
+        SELECT 
+            u.id,
+            u.username,
+            u.fullname,
+            u.email,
+            COALESCE(COUNT(a.id), 0) as total_attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts,
+            MAX(a.created_at) as last_activity
+        FROM users u
+        JOIN student_classes sc ON u.id = sc.student_id
+        LEFT JOIN attempts a ON u.id = a.user_id
+        WHERE sc.class_id = $1 AND u.role = 'student'
+        GROUP BY u.id, u.username, u.fullname, u.email
+        ORDER BY u.fullname
+    `
+
+	rows, err := r.db.Query(query, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []map[string]interface{}
+	for rows.Next() {
+		var studentID, totalAttempts, correctAttempts int
+		var username, fullname, email string
+		var lastActivity sql.NullTime
+
+		if err := rows.Scan(&studentID, &username, &fullname, &email, &totalAttempts, &correctAttempts, &lastActivity); err != nil {
+			continue
+		}
+
+		accuracy := 0.0
+		if totalAttempts > 0 {
+			accuracy = float64(correctAttempts) / float64(totalAttempts) * 100
+		}
+
+		students = append(students, map[string]interface{}{
+			"id":               studentID,
+			"username":         username,
+			"fullname":         fullname,
+			"email":            email,
+			"total_attempts":   totalAttempts,
+			"correct_attempts": correctAttempts,
+			"accuracy":         accuracy,
+			"last_activity": func() string {
+				if lastActivity.Valid {
+					return lastActivity.Time.Format("02.01.2006 15:04")
+				}
+				return "Нет активности"
+			}(),
+		})
+	}
+
+	return students, nil
+}
+
+// Получить детальную статистику по типам уравнений для класса
+func (r *TeacherRepository) GetClassTypeStatistics(classID int) ([]map[string]interface{}, error) {
+	query := `
+        WITH class_attempts AS (
+            SELECT 
+                et.id as type_id,
+                et.name as type_name,
+                et.class as type_class,
+                COUNT(a.id) as total_attempts,
+                COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts,
+                COUNT(DISTINCT a.user_id) as students_attempted
+            FROM equation_types et
+            LEFT JOIN attempts a ON et.id = a.equation_type_id
+            LEFT JOIN users u ON a.user_id = u.id
+            LEFT JOIN student_classes sc ON u.id = sc.student_id AND sc.class_id = $1
+            GROUP BY et.id, et.name, et.class
+        ),
+        class_students AS (
+            SELECT COUNT(DISTINCT student_id) as total_students
+            FROM student_classes
+            WHERE class_id = $1
+        )
+        SELECT 
+            ca.type_id,
+            ca.type_name,
+            ca.type_class,
+            COALESCE(ca.total_attempts, 0) as total_attempts,
+            COALESCE(ca.correct_attempts, 0) as correct_attempts,
+            COALESCE(ca.students_attempted, 0) as students_attempted,
+            COALESCE(cs.total_students, 0) as total_students,
+            CASE 
+                WHEN COALESCE(ca.total_attempts, 0) > 0 
+                THEN ROUND(ca.correct_attempts::DECIMAL / ca.total_attempts * 100, 1)
+                ELSE 0 
+            END as accuracy_percent,
+            CASE 
+                WHEN COALESCE(cs.total_students, 0) > 0 
+                THEN ROUND(COALESCE(ca.students_attempted, 0)::DECIMAL / cs.total_students * 100, 1)
+                ELSE 0 
+            END as coverage_percent
+        FROM class_attempts ca
+        CROSS JOIN class_students cs
+        ORDER BY ca.type_class, ca.total_attempts DESC
+    `
+
+	rows, err := r.db.Query(query, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var typeStats []map[string]interface{}
+	for rows.Next() {
+		var typeID, totalAttempts, correctAttempts, studentsAttempted, totalStudents int
+		var typeName string
+		var typeClass, accuracyPercent, coveragePercent float64
+
+		if err := rows.Scan(&typeID, &typeName, &typeClass, &totalAttempts, &correctAttempts,
+			&studentsAttempted, &totalStudents, &accuracyPercent, &coveragePercent); err != nil {
+			continue
+		}
+
+		// Получаем статистику по ученикам для этого типа
+		studentStats, _ := r.GetTypeStudentStats(classID, typeID)
+
+		typeStats = append(typeStats, map[string]interface{}{
+			"type_id":            typeID,
+			"type_name":          typeName,
+			"type_class":         int(typeClass),
+			"total_attempts":     totalAttempts,
+			"correct_attempts":   correctAttempts,
+			"accuracy_percent":   accuracyPercent,
+			"students_attempted": studentsAttempted,
+			"total_students":     totalStudents,
+			"coverage_percent":   coveragePercent,
+			"student_stats":      studentStats,
+		})
+	}
+
+	return typeStats, nil
+}
+
+// Получить статистику учеников по типу уравнения
+func (r *TeacherRepository) GetTypeStudentStats(classID, typeID int) ([]map[string]interface{}, error) {
+	query := `
+        SELECT 
+            u.id,
+            u.fullname,
+            COALESCE(COUNT(a.id), 0) as attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct,
+            MAX(a.created_at) as last_attempt
+        FROM users u
+        JOIN student_classes sc ON u.id = sc.student_id
+        LEFT JOIN attempts a ON u.id = a.user_id AND a.equation_type_id = $2
+        WHERE sc.class_id = $1
+        GROUP BY u.id, u.fullname
+        ORDER BY u.fullname
+    `
+
+	rows, err := r.db.Query(query, classID, typeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var studentStats []map[string]interface{}
+	for rows.Next() {
+		var studentID, attempts, correct int
+		var fullname string
+		var lastAttempt sql.NullTime
+
+		if err := rows.Scan(&studentID, &fullname, &attempts, &correct, &lastAttempt); err != nil {
+			continue
+		}
+
+		accuracy := 0.0
+		if attempts > 0 {
+			accuracy = float64(correct) / float64(attempts) * 100
+		}
+
+		studentStats = append(studentStats, map[string]interface{}{
+			"student_id": studentID,
+			"fullname":   fullname,
+			"attempts":   attempts,
+			"correct":    correct,
+			"accuracy":   accuracy,
+			"last_attempt": func() string {
+				if lastAttempt.Valid {
+					return lastAttempt.Time.Format("02.01")
+				}
+				return "-"
+			}(),
+		})
+	}
+
+	return studentStats, nil
+}
+
+// Получить таблицу успеваемости (ученики × типы уравнений)
+func (r *TeacherRepository) GetClassPerformanceTable(classID int) ([]map[string]interface{}, error) {
+	query := `
+        WITH student_type_stats AS (
+            SELECT 
+                u.id as student_id,
+                u.fullname,
+                et.id as type_id,
+                et.name as type_name,
+                COALESCE(COUNT(a.id), 0) as attempts,
+                COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct
+            FROM users u
+            JOIN student_classes sc ON u.id = sc.student_id
+            CROSS JOIN equation_types et
+            LEFT JOIN attempts a ON u.id = a.user_id AND a.equation_type_id = et.id
+            WHERE sc.class_id = $1
+            GROUP BY u.id, u.fullname, et.id, et.name
+        )
+        SELECT 
+            student_id,
+            fullname,
+            type_id,
+            type_name,
+            attempts,
+            correct,
+            CASE 
+                WHEN attempts = 0 THEN '❌ Не решал'
+                WHEN attempts > 0 AND correct = 0 THEN '🔴 Нет верных'
+                WHEN correct::DECIMAL / NULLIF(attempts, 0) >= 0.8 THEN '🟢 Отлично'
+                WHEN correct::DECIMAL / NULLIF(attempts, 0) >= 0.6 THEN '🟡 Хорошо'
+                WHEN correct::DECIMAL / NULLIF(attempts, 0) >= 0.4 THEN '🟠 Удовлет.'
+                ELSE '🔴 Слабо'
+            END as performance
+        FROM student_type_stats
+        ORDER BY fullname, type_name
+    `
+
+	rows, err := r.db.Query(query, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var performanceTable []map[string]interface{}
+	for rows.Next() {
+		var studentID, typeID, attempts, correct int
+		var fullname, typeName, performance string
+
+		if err := rows.Scan(&studentID, &fullname, &typeID, &typeName, &attempts, &correct, &performance); err != nil {
+			continue
+		}
+
+		accuracy := 0.0
+		if attempts > 0 {
+			accuracy = float64(correct) / float64(attempts) * 100
+		}
+
+		performanceTable = append(performanceTable, map[string]interface{}{
+			"student_id":  studentID,
+			"fullname":    fullname,
+			"type_id":     typeID,
+			"type_name":   typeName,
+			"attempts":    attempts,
+			"correct":     correct,
+			"accuracy":    accuracy,
+			"performance": performance,
+			"cell_class": func() string {
+				switch {
+				case attempts == 0:
+					return "not-attempted"
+				case attempts > 0 && correct == 0:
+					return "no-correct"
+				case accuracy >= 80:
+					return "excellent"
+				case accuracy >= 60:
+					return "good"
+				case accuracy >= 40:
+					return "average"
+				default:
+					return "poor"
+				}
+			}(),
+		})
+	}
+
+	return performanceTable, nil
+}
+
+// Получить имя класса по ID
+func (r *TeacherRepository) GetClassName(classID int) (string, error) {
+	query := `SELECT name FROM classes WHERE id = $1`
+	var name string
+	err := r.db.QueryRow(query, classID).Scan(&name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}

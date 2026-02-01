@@ -202,7 +202,7 @@ FOR EACH ROW
 EXECUTE FUNCTION create_user_progress_for_new_equation_type();
 
 -- Создание тестового класса
-INSERT INTO classes (name, grade) VALUES ('3А', 3);
+INSERT INTO classes (name, grade) VALUES ('3', 3), ('4', 4);
 
 -- Создание тестового пользователя
 INSERT INTO users (username, email, password_hash, role, fullname) 
