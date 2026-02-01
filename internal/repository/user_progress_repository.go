@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"edugame/internal/entity"
+	"fmt"
 )
 
 type UserProgressRepository struct {
@@ -11,6 +12,13 @@ type UserProgressRepository struct {
 
 func NewUserProgressRepository(db *sql.DB) *UserProgressRepository {
 	return &UserProgressRepository{db: db}
+}
+
+type TypeStat struct {
+	TypeID      int
+	Attempts    int
+	Correct     int
+	LastAttempt sql.NullTime
 }
 
 // получить прогресс определенного пользователя по определенному типу уравнений
@@ -140,4 +148,44 @@ type UserProgressRepositoryError struct {
 
 func (e *UserProgressRepositoryError) Error() string {
 	return "User repository error: " + e.Message
+}
+
+func (r *UserProgressRepository) GetUserTypeStatistics(userID int) (map[int]TypeStat, error) {
+	query := `
+		SELECT 
+			et.id as type_id,
+			COALESCE(up.attempts_count, 0) as attempts_count,
+			COALESCE(up.correct_count, 0) as correct_count,
+			up.last_attempt_at
+		FROM equation_types et
+		LEFT JOIN user_progress up ON et.id = up.equation_type_id AND up.user_id = ?
+		WHERE et.class = (
+			SELECT c.grade 
+			FROM classes c
+			JOIN student_classes sc ON c.id = sc.class_id
+			WHERE sc.student_id = ?
+			LIMIT 1
+		)
+		ORDER BY et.id
+	`
+
+	rows, err := r.db.Query(query, userID, userID)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	defer rows.Close()
+	
+	stats := make(map[int]TypeStat)
+	for rows.Next() {
+		var stat TypeStat
+		err := rows.Scan(&stat.TypeID, &stat.Attempts, &stat.Correct, &stat.LastAttempt)
+		fmt.Println(err)
+		if err != nil {
+			continue
+		}
+		stats[stat.TypeID] = stat
+	}
+
+	return stats, nil
 }

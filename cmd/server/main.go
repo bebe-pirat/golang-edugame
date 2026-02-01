@@ -36,7 +36,7 @@ func main() {
 	userProgressRepo := repository.NewUserProgressRepository(database.DB)
 
 	indexHandler := handler.NewIndexHandler()
-	equationHandler := handler.NewEquationHandler(userRepo, typeRepo)
+	equationHandler := handler.NewEquationHandler(userRepo, typeRepo, userProgressRepo)
 	statsHandler := handler.NewStatsHandler(userProgressRepo, userRepo)
 	loginHandler := handler.NewLoginHandler(userRepo)
 	registrationHandler := handler.NewRegistrationHandler(userRepo)
