@@ -10,19 +10,14 @@
 <body>
     <!-- Навигация -->
     <nav class="navbar">
-        <a href="/teacher/class" class="nav-brand">Математический тренажер</a>
+        <a href="/director" class="nav-brand">Математический тренажер</a>
         <div class="nav-links">
-            <a href="/teacher/class" class="logout-btn">На главную</a>
+            <a href="/director"  class="logout-btn">На главную</a>
             <a href="/logout" class="logout-btn">Выйти</a>
         </div>
     </nav>
 
     <div class="container">
-        <!-- Кнопки действий -->
-        <div class="action-buttons">
-            <a href="javascript:history.back()" class="btn btn-back">← Назад</a>
-        </div>
-
         <!-- Информация об ученике -->
         {{with .student_info}}
         <div class="student-header">
@@ -100,7 +95,7 @@
                         <td>{{.last_attempt}}</td>
                         <td>
                             {{if gt .attempts 0}}
-                            <a href="/teacher/student/attempts?student_id={{$.student_info.id}}&type_id={{.type_id}}" 
+                            <a href="/director/student/attempts?student_id={{$.student_info.id}}&type_id={{.type_id}}" 
                                class="type-link">
                                 Показать попытки
                             </a>

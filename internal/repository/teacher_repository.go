@@ -3,7 +3,12 @@ package repository
 
 import (
 	"database/sql"
+	"edugame/internal/entity"
+	"fmt"
+	"sort"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type TeacherRepository struct {
@@ -15,7 +20,7 @@ func NewTeacherRepository(db *sql.DB) *TeacherRepository {
 }
 
 // Получить классы учителя
-func (r *TeacherRepository) GetTeacherClasses(teacherID int) ([]struct {
+func (r *TeacherRepository) GetTeacherClass(teacherID int) (struct {
 	ID    int
 	Name  string
 	Grade int
@@ -26,32 +31,52 @@ func (r *TeacherRepository) GetTeacherClasses(teacherID int) ([]struct {
 		WHERE teacher_id = $1
 		ORDER BY grade, name
 	`
-
-	rows, err := r.db.Query(query, teacherID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var classes []struct {
+	var class struct {
 		ID    int
 		Name  string
 		Grade int
 	}
 
-	for rows.Next() {
-		var class struct {
-			ID    int
-			Name  string
-			Grade int
-		}
-		if err := rows.Scan(&class.ID, &class.Name, &class.Grade); err != nil {
-			return nil, err
-		}
-		classes = append(classes, class)
+	err := r.db.QueryRow(query, teacherID).Scan(&class.ID, &class.Name, &class.Grade)
+
+	if err != nil {
+		return class, err
 	}
 
-	return classes, nil
+	return class, nil
+}
+// repository/teacher_repository.go
+
+// GetAllClasses получает все классы из базы данных
+func (r *TeacherRepository) GetAllClasses() ([]*entity.Class, error) {
+    query := `
+        SELECT id, name, grade, teacher_id 
+        FROM classes 
+        ORDER BY grade, name
+    `
+    
+    rows, err := r.db.Query(query)
+    if err != nil {
+        return nil, fmt.Errorf("ошибка получения классов: %w", err)
+    }
+    defer rows.Close()
+    
+    var classes []*entity.Class
+    for rows.Next() {
+        var class entity.Class
+        err := rows.Scan(
+            &class.ID,
+            &class.Name,
+            &class.Grade,
+            &class.TeacherID,
+        )
+        if err != nil {
+            continue // пропускаем ошибки чтения
+        }
+        classes = append(classes, &class)
+    }
+    
+    return classes, nil
 }
 
 // Получить учеников класса
@@ -260,6 +285,370 @@ func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interfac
 	}
 
 	return stats, nil
+}
+
+// GetClassesStatistics получает статистику по всем классам
+func (r *TeacherRepository) GetClassesStatistics() (map[int]map[string]interface{}, error) {
+	// Получаем все классы
+	classesQuery := `
+        SELECT id, name, grade 
+        FROM classes 
+        ORDER BY grade, name
+    `
+
+	rows, err := r.db.Query(classesQuery)
+	if err != nil {
+		return nil, fmt.Errorf("не удалось получить классы: %w", err)
+	}
+	defer rows.Close()
+
+	classes := make(map[int]map[string]interface{})
+	var classIDs []int
+
+	for rows.Next() {
+		var id, grade int
+		var name string
+
+		if err := rows.Scan(&id, &name, &grade); err != nil {
+			continue
+		}
+
+		classes[id] = map[string]interface{}{
+			"class_id":                 id,
+			"class_name":               name,
+			"grade":                    grade,
+			"student_count":            0,
+			"total_attempts":           0,
+			"correct_attempts":         0,
+			"accuracy_percent":         0.0,
+			"avg_attempts_per_student": 0.0,
+		}
+		classIDs = append(classIDs, id)
+	}
+
+	if len(classIDs) == 0 {
+		// Возвращаем общую статистику с правильными полями
+		return map[int]map[string]interface{}{
+			0: {
+				"total_classes":         0,
+				"total_students":        0,
+				"total_attempts":        0,
+				"total_correct":         0,
+				"overall_accuracy":      0.0,
+				"most_active_class":     nil,
+				"best_performing_class": nil,
+				// Дублирующие поля для шаблона
+				"student_count":    0,
+				"correct_attempts": 0,
+				"accuracy_percent": 0.0,
+				"top_students":     []map[string]interface{}{},
+			},
+		}, nil
+	}
+
+	// Основная статистика по всем классам
+	statsQuery := `
+        SELECT 
+            sc.class_id,
+            COUNT(DISTINCT u.id) as student_count,
+            COUNT(DISTINCT a.id) as total_attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts
+        FROM student_classes sc
+        JOIN users u ON sc.student_id = u.id AND u.role = 'student'
+        LEFT JOIN attempts a ON u.id = a.user_id
+        WHERE sc.class_id = ANY($1)
+        GROUP BY sc.class_id
+    `
+
+	statsRows, err := r.db.Query(statsQuery, pq.Array(classIDs))
+	if err != nil {
+		fmt.Printf("Предупреждение: не удалось получить основную статистику: %v\n", err)
+	} else {
+		defer statsRows.Close()
+
+		for statsRows.Next() {
+			var classID, studentCount, totalAttempts, correctAttempts int
+
+			if err := statsRows.Scan(&classID, &studentCount, &totalAttempts, &correctAttempts); err != nil {
+				continue
+			}
+
+			if classData, exists := classes[classID]; exists {
+				classData["student_count"] = studentCount
+				classData["total_attempts"] = totalAttempts
+				classData["correct_attempts"] = correctAttempts
+
+				if totalAttempts > 0 {
+					classData["accuracy_percent"] = float64(correctAttempts) / float64(totalAttempts) * 100
+				}
+
+				if studentCount > 0 {
+					classData["avg_attempts_per_student"] = float64(totalAttempts) / float64(studentCount)
+				}
+			}
+		}
+	}
+
+	// Активность по классам (последние 7 дней)
+	activityQuery := `
+        SELECT 
+            sc.class_id,
+            DATE(a.created_at) as date,
+            COUNT(*) as attempts,
+            SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END) as correct
+        FROM attempts a
+        JOIN users u ON a.user_id = u.id
+        JOIN student_classes sc ON u.id = sc.student_id
+        WHERE sc.class_id = ANY($1)
+          AND a.created_at >= CURRENT_DATE - INTERVAL '7 days'
+        GROUP BY sc.class_id, DATE(a.created_at)
+    `
+
+	activityRows, err := r.db.Query(activityQuery, pq.Array(classIDs))
+	if err == nil {
+		defer activityRows.Close()
+
+		for activityRows.Next() {
+			var classID int
+			var date time.Time
+			var attempts, correct int
+
+			if err := activityRows.Scan(&classID, &date, &attempts, &correct); err != nil {
+				continue
+			}
+
+			if classData, exists := classes[classID]; exists {
+				// Безопасное добавление активности
+				activity := classData["activity"]
+				if activity == nil {
+					activity = []map[string]interface{}{}
+				}
+
+				activityList, _ := activity.([]map[string]interface{})
+				activityList = append(activityList, map[string]interface{}{
+					"date":     date.Format("02.01"),
+					"attempts": attempts,
+					"correct":  correct,
+					"accuracy": func() float64 {
+						if attempts > 0 {
+							return float64(correct) / float64(attempts) * 100
+						}
+						return 0
+					}(),
+				})
+				classData["activity"] = activityList
+			}
+		}
+	}
+
+	// Статистика по типам уравнений для всех классов
+	typeStatsQuery := `
+        SELECT 
+            sc.class_id,
+            et.name as type_name,
+            COUNT(a.id) as attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct
+        FROM equation_types et
+        CROSS JOIN student_classes sc
+        LEFT JOIN users u ON sc.student_id = u.id
+        LEFT JOIN attempts a ON et.id = a.equation_type_id AND a.user_id = u.id
+        WHERE sc.class_id = ANY($1)
+        GROUP BY sc.class_id, et.id, et.name
+        HAVING COUNT(a.id) > 0
+        ORDER BY sc.class_id, attempts DESC
+    `
+
+	typeRows, err := r.db.Query(typeStatsQuery, pq.Array(classIDs))
+	if err == nil {
+		defer typeRows.Close()
+
+		for typeRows.Next() {
+			var classID, attempts, correct int
+			var typeName string
+
+			if err := typeRows.Scan(&classID, &typeName, &attempts, &correct); err != nil {
+				continue
+			}
+
+			if classData, exists := classes[classID]; exists {
+				// Безопасное добавление статистики типов
+				typeStats := classData["type_statistics"]
+				if typeStats == nil {
+					typeStats = []map[string]interface{}{}
+				}
+
+				typeStatsList, _ := typeStats.([]map[string]interface{})
+				typeStatsList = append(typeStatsList, map[string]interface{}{
+					"type_name": typeName,
+					"attempts":  attempts,
+					"correct":   correct,
+					"accuracy": func() float64 {
+						if attempts > 0 {
+							return float64(correct) / float64(attempts) * 100
+						}
+						return 0
+					}(),
+				})
+				classData["type_statistics"] = typeStatsList
+			}
+		}
+	}
+
+	// Топ учеников по каждому классу
+	topStudentsQuery := `
+        SELECT 
+            sc.class_id,
+            u.id,
+            u.fullname,
+            COUNT(a.id) as total_attempts,
+            COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts
+        FROM users u
+        LEFT JOIN attempts a ON u.id = a.user_id
+        JOIN student_classes sc ON u.id = sc.student_id
+        WHERE sc.class_id = ANY($1)
+        GROUP BY sc.class_id, u.id, u.fullname
+        ORDER BY sc.class_id, correct_attempts DESC
+    `
+
+	studentRows, err := r.db.Query(topStudentsQuery, pq.Array(classIDs))
+	if err == nil {
+		defer studentRows.Close()
+
+		tempTopStudents := make(map[int][]map[string]interface{})
+
+		for studentRows.Next() {
+			var classID, studentID, total, correct int
+			var fullname string
+
+			if err := studentRows.Scan(&classID, &studentID, &fullname, &total, &correct); err != nil {
+				continue
+			}
+
+			studentData := map[string]interface{}{
+				"id":      studentID,
+				"name":    fullname,
+				"total":   total,
+				"correct": correct,
+				"accuracy": func() float64 {
+					if total > 0 {
+						return float64(correct) / float64(total) * 100
+					}
+					return 0
+				}(),
+			}
+
+			tempTopStudents[classID] = append(tempTopStudents[classID], studentData)
+		}
+
+		// Добавляем топ-5 учеников для каждого класса
+		for classID, students := range tempTopStudents {
+			if classData, exists := classes[classID]; exists {
+				limit := 5
+				if len(students) < limit {
+					limit = len(students)
+				}
+				classData["top_students"] = students[:limit]
+			}
+		}
+	}
+
+	// Общая сводка по всем классам
+	overallStats := map[string]interface{}{
+		"total_classes":         0,
+		"total_students":        0,
+		"total_attempts":        0,
+		"total_correct":         0,
+		"overall_accuracy":      0.0,
+		"most_active_class":     nil,
+		"best_performing_class": nil,
+		// Дублирующие поля для шаблона
+		"student_count":    0,
+		"correct_attempts": 0,
+		"accuracy_percent": 0.0,
+		"top_students":     []map[string]interface{}{},
+	}
+
+	var totalStudents, totalAttempts, totalCorrect int
+	var mostActiveClass map[string]interface{}
+	var bestPerformingClass map[string]interface{}
+	maxAttempts := 0
+	maxAccuracy := 0.0
+	var allTopStudents []map[string]interface{}
+
+	for _, classData := range classes {
+		studentCount, _ := classData["student_count"].(int)
+		attempts, _ := classData["total_attempts"].(int)
+		correct, _ := classData["correct_attempts"].(int)
+		accuracy, _ := classData["accuracy_percent"].(float64)
+
+		totalStudents += studentCount
+		totalAttempts += attempts
+		totalCorrect += correct
+
+		if attempts > maxAttempts {
+			maxAttempts = attempts
+			mostActiveClass = map[string]interface{}{
+				"class_id":   classData["class_id"],
+				"class_name": classData["class_name"],
+				"attempts":   attempts,
+			}
+		}
+
+		if attempts > 0 && accuracy > maxAccuracy {
+			maxAccuracy = accuracy
+			bestPerformingClass = map[string]interface{}{
+				"class_id":   classData["class_id"],
+				"class_name": classData["class_name"],
+				"accuracy":   accuracy,
+			}
+		}
+
+		// Собираем топ учеников из всех классов
+		if topStudents, ok := classData["top_students"].([]map[string]interface{}); ok && len(topStudents) > 0 {
+			allTopStudents = append(allTopStudents, topStudents...)
+		}
+	}
+
+	overallStats["total_classes"] = len(classIDs)
+	overallStats["total_students"] = totalStudents
+	overallStats["total_attempts"] = totalAttempts
+	overallStats["total_correct"] = totalCorrect
+	overallStats["most_active_class"] = mostActiveClass
+	overallStats["best_performing_class"] = bestPerformingClass
+	overallStats["student_count"] = totalStudents
+	overallStats["correct_attempts"] = totalCorrect
+
+	if totalAttempts > 0 {
+		accuracy := float64(totalCorrect) / float64(totalAttempts) * 100
+		overallStats["overall_accuracy"] = accuracy
+		overallStats["accuracy_percent"] = accuracy
+	}
+
+	if len(allTopStudents) > 0 {
+		sort.Slice(allTopStudents, func(i, j int) bool {
+			accI, _ := allTopStudents[i]["accuracy"].(float64)
+			accJ, _ := allTopStudents[j]["accuracy"].(float64)
+			return accI > accJ
+		})
+
+		limit := 10
+		if len(allTopStudents) < limit {
+			limit = len(allTopStudents)
+		}
+		overallStats["top_students"] = allTopStudents[:limit]
+	}
+
+	// Добавляем общую статистику в результат
+	result := map[int]map[string]interface{}{
+		0: overallStats,
+	}
+
+	// Добавляем статистику по классам
+	for id, data := range classes {
+		result[id] = data
+	}
+
+	return result, nil
 }
 
 // Получить статистику ученика

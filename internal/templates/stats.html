@@ -17,7 +17,9 @@
                     <span class="username">{{ .UserName }}</span>
                 </div>
                 <nav> 
-                    <a href="/logout">Выйти</a>
+                    <div class="nav-links">
+                        <a href="/logout">Выйти</a>
+                    </div>
                 </nav>
             </header>
         
@@ -40,7 +42,6 @@
                     <div class="card-content">
                         <h3>Правильных ответов</h3>
                         <p class="card-value">{{ .CorrectCount }}</p>
-                        <p class="card-percentage">{{ .Accuracy }}%</p>
                     </div>
                 </div>
             </div>
@@ -96,7 +97,7 @@
 
             <!-- Кнопки действий -->
             <div class="action-buttons">
-                <a href="/" class="btn btn-primary">
+                <a href="/home" class="btn btn-primary">
                     <i class="fas fa-home"></i> На главную
                 </a>
                 <a href="/equation" class="btn btn-success">

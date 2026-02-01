@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="/director" class="nav-brand">Математический тренажер</a>
+            <div class="nav-links">
+                <a href="/logout" class="logout-btn">Выйти</a>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> {{.Title}}</h1>
+            <p>Просмотр всех классов и общей статистики</p>
+        </div>
+        
+        <h2><i class="fas fa-users"></i> Все классы</h2>
+        {{if .Classes}}
+        <div class="classes-grid">
+            {{range .Classes}}
+            <div class="class-card" onclick="window.location='/director/class?class_id={{.ID}}'">
+                <h3>{{.Name}}</h3>
+                <p>{{.Grade}} класс</p>
+                <p><small>ID: {{.ID}}</small></p>
+                <a href="/director/class?class_id={{.ID}}" class="btn">
+                    <i class="fas fa-chart-bar"></i> Перейти к классу
+                </a>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="no-classes">
+            <i class="fas fa-info-circle"></i>
+            <h3>Классы не найдены</h3>
+            <p>В системе пока нет зарегистрированных классов.</p>
+        </div>
+        {{end}}
+        
+        {{if .ClassStats}}
+        <div class="activity-chart">
+            <h2><i class="fas fa-chart-pie"></i> Общая статистика по всем классам</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">
+                        {{if .ClassStats.total_classes}}{{.ClassStats.total_classes}}{{else}}0{{end}}
+                    </div>
+                    <div class="stat-label">Всего классов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">
+                        {{if .ClassStats.total_students}}{{.ClassStats.total_students}}{{else}}0{{end}}
+                    </div>
+                    <div class="stat-label">Всего учеников</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">
+                        {{if .ClassStats.total_attempts}}{{.ClassStats.total_attempts}}{{else}}0{{end}}
+                    </div>
+                    <div class="stat-label">Всего попыток</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">
+                        {{if .ClassStats.total_correct}}{{.ClassStats.total_correct}}{{else}}0{{end}}
+                    </div>
+                    <div class="stat-label">Правильных ответов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">
+                        {{if .ClassStats.overall_accuracy}}{{printf "%.1f" .ClassStats.overall_accuracy}}%{{else}}0%{{end}}
+                    </div>
+                    <div class="stat-label">Общая точность</div>
+                </div>
+            </div>
+            
+            {{if .ClassStats.top_students}}
+            <h3><i class="fas fa-trophy"></i> Лучшие ученики по всем классам</h3>
+            <div class="student-list">
+                {{range .ClassStats.top_students}}
+                <div class="student-row">
+                    <span>{{.name}}</span>
+                    <span>
+                        <span class="badge badge-success">{{.correct}}/{{.total}}</span>
+                        <span>{{printf "%.1f" .accuracy}}%</span>
+                    </span>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="no-stats">
+            <i class="fas fa-chart-bar"></i>
+            <h3>Статистика недоступна</h3>
+            <p>Данные статистики по классам пока не доступны.</p>
+        </div>
+        {{end}}
+    </div>
+    
+    <script>        
+        // Обработка кликов по карточкам классов
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.class-card');
+            cards.forEach(card => {
+                card.addEventListener('click', function(e) {
+                    // Не переходить, если кликнули на ссылку внутри карточки
+                    if (e.target.tagName === 'A' || e.target.closest('a')) {
+                        return;
+                    }
+                    const link = this.querySelector('a');
+                    if (link) {
+                        window.location = link.href;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

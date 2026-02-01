@@ -16,7 +16,7 @@ type RegistrationHandler struct {
 
 func NewRegistrationHandler(userRepo *repository.UserRepository) *RegistrationHandler {
 	tmpl := template.Must(template.ParseFiles(
-		"../../internal/templates/register.html",
+		"internal/templates/register.html",
 	))
 
 	return &RegistrationHandler{

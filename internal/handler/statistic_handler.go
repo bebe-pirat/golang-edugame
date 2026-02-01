@@ -41,7 +41,7 @@ func NewStatsHandler(up *repository.UserProgressRepository, u *repository.UserRe
 	tmpl := template.Must(template.New("stats.html").
 		Funcs(funcMap).
 		ParseFiles(
-			"../../internal/templates/stats.html",
+			"internal/templates/stats.html",
 		))
 	return &StatsHandler{
 		tmpl:             tmpl,

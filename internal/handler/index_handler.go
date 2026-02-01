@@ -10,7 +10,7 @@ type IndexHandler struct {
 }
 
 func NewIndexHandler() *IndexHandler {
-	tmpl := template.Must(template.ParseFiles("../../internal/templates/index.html"))
+	tmpl := template.Must(template.ParseFiles("internal/templates/index.html"))
 	return &IndexHandler{tmpl: tmpl}
 }
 

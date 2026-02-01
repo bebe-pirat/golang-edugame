@@ -62,26 +62,29 @@ func (r *UserProgressRepository) GetUserProgressBySpecificEqType(userId, equatio
 }
 
 func (r *UserProgressRepository) GetUserAllProgress(userId int) ([]entity.UserProgress, error) {
-	rows, err := r.db.Query(`
-        SELECT 
-            user_progress.id,                     -- 1 id
-            user_progress.user_id,                -- 2 userId 
-            users.username,                       -- 3 username
-            user_progress.equation_type_id,       -- 4 equation_type_id
-            equation_types.name,                  -- 5 equation_type_name
-            equation_types.description,           -- 6 description
-            user_progress.attempts_count,         -- 7 attempts_count
-            user_progress.correct_count,          -- 8 correct_count
-            user_progress.is_unlocked,            -- 9 is_unlocked
-            user_progress.first_unlocked_at,      -- 10 first_unlocked_at
-            user_progress.last_attempt_at,        -- 11 last_attempt_at
-            user_progress.created_at,             -- 12 created_at
-            user_progress.updated_at              -- 13 updated_at
-        FROM user_progress 
-        JOIN equation_types ON user_progress.equation_type_id = equation_types.id
-        JOIN users ON users.id = user_progress.user_id
-        WHERE user_progress.user_id = $1
-    `, userId)
+	// Используем правильный многострочный литерал
+	query := `
+SELECT 
+    user_progress.id,                     -- 1 id
+    user_progress.user_id,                -- 2 userId 
+    users.username,                       -- 3 username
+    user_progress.equation_type_id,       -- 4 equation_type_id
+    equation_types.name,                  -- 5 equation_type_name
+    equation_types.description,           -- 6 description
+    user_progress.attempts_count,         -- 7 attempts_count
+    user_progress.correct_count,          -- 8 correct_count
+    user_progress.is_unlocked,            -- 9 is_unlocked
+    user_progress.first_unlocked_at,      -- 10 first_unlocked_at
+    user_progress.last_attempt_at,        -- 11 last_attempt_at
+    user_progress.created_at,             -- 12 created_at
+    user_progress.updated_at              -- 13 updated_at
+FROM user_progress 
+JOIN equation_types ON user_progress.equation_type_id = equation_types.id
+JOIN users ON users.id = user_progress.user_id
+WHERE user_progress.user_id = $1
+`
+
+	rows, err := r.db.Query(query, userId)
 
 	if err != nil {
 		return nil, err
@@ -93,21 +96,20 @@ func (r *UserProgressRepository) GetUserAllProgress(userId int) ([]entity.UserPr
 	for rows.Next() {
 		var up entity.UserProgress
 
-		// Теперь 13 полей в SELECT и 13 в Scan
 		err := rows.Scan(
-			&up.Id,               // 1
-			&up.UserId,           // 2
-			&up.Username,         // 3
-			&up.EquationTypeId,   // 4
-			&up.EquationTypeName, // 5
-			&up.Description,      // 6
-			&up.AttemptsCount,    // 7
-			&up.CorrectCount,     // 8
-			&up.IsUnlocked,       // 9
-			&up.FirstUnlockedAt,  // 10
-			&up.LastAttemptAt,    // 11
-			&up.CreatedAt,        // 12
-			&up.UpdatedAt,        // 13
+			&up.Id,
+			&up.UserId,
+			&up.Username,
+			&up.EquationTypeId,
+			&up.EquationTypeName,
+			&up.Description,
+			&up.AttemptsCount,
+			&up.CorrectCount,
+			&up.IsUnlocked,
+			&up.FirstUnlockedAt,
+			&up.LastAttemptAt,
+			&up.CreatedAt,
+			&up.UpdatedAt,
 		)
 
 		if err != nil {
@@ -152,22 +154,22 @@ func (e *UserProgressRepositoryError) Error() string {
 
 func (r *UserProgressRepository) GetUserTypeStatistics(userID int) (map[int]TypeStat, error) {
 	query := `
-		SELECT 
-			et.id as type_id,
-			COALESCE(up.attempts_count, 0) as attempts_count,
-			COALESCE(up.correct_count, 0) as correct_count,
-			up.last_attempt_at
-		FROM equation_types et
-		LEFT JOIN user_progress up ON et.id = up.equation_type_id AND up.user_id = ?
-		WHERE et.class = (
-			SELECT c.grade 
-			FROM classes c
-			JOIN student_classes sc ON c.id = sc.class_id
-			WHERE sc.student_id = ?
-			LIMIT 1
-		)
-		ORDER BY et.id
-	`
+    SELECT 
+        et.id as type_id,
+        COALESCE(up.attempts_count, 0) as attempts_count,
+        COALESCE(up.correct_count, 0) as correct_count,
+        up.last_attempt_at
+    FROM equation_types et
+    LEFT JOIN user_progress up ON et.id = up.equation_type_id AND up.user_id = $1
+    WHERE et.class = (
+        SELECT c.grade 
+        FROM classes c
+        JOIN student_classes sc ON c.id = sc.class_id
+        WHERE sc.student_id = $2
+        LIMIT 1
+    )
+    ORDER BY et.id
+`
 
 	rows, err := r.db.Query(query, userID, userID)
 	if err != nil {
@@ -175,7 +177,7 @@ func (r *UserProgressRepository) GetUserTypeStatistics(userID int) (map[int]Type
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	stats := make(map[int]TypeStat)
 	for rows.Next() {
 		var stat TypeStat

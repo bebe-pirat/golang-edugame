@@ -9,13 +9,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Навигация -->
-    <nav class="navbar">
-        <a href="/teacher/class" class="nav-brand">Математический тренажер</a>
-        <div class="nav-links">
-            <a href="/logout" class="logout-btn">Выйти</a>
-        </div>
-    </nav>
+    <header>
+        <nav class="navbar">
+            <a href="/director" class="nav-brand">Математический тренажер</a>
+            <div class="nav-links">
+                <a href="/director" class="logout-btn">На главную</a>
+                <a href="/logout" class="logout-btn">Выйти</a>
+            </div>
+        </nav>
+    </header>
 
     <div class="container">
         <!-- Заголовок -->
@@ -65,7 +67,7 @@
                     <div>
                         {{.correct}}/{{.total}} верно
                     </div>
-                    <a href="/teacher/student?student_id={{.id}}" class="student-link">
+                    <a href="/director/student?student_id={{.id}}" class="student-link">
                         Подробнее →
                     </a>
                 </div>
@@ -92,7 +94,7 @@
                         <td>{{.FullName}}</td>
                         <td>{{.Username}}</td>
                         <td>
-                            <a href="/teacher/student?student_id={{.ID}}" class="student-link">
+                            <a href="/director/student?student_id={{.ID}}" class="student-link">
                                 Показать статистику
                             </a>
                         </td>

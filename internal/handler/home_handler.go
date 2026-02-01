@@ -10,7 +10,7 @@ type HomeHandler struct {
 }
 
 func NewHomeHandler() *IndexHandler {
-	tmpl := template.Must(template.ParseFiles("../../internal/templates/home.html"))
+	tmpl := template.Must(template.ParseFiles("internal/templates/home.html"))
 	return &IndexHandler{tmpl: tmpl}
 }
 

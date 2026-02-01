@@ -65,7 +65,7 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 		}
 		eqStr += "= ?"
 
-		m := entity.NewMather(expr)
+		m := entity.NewMather(expr, t.Result_max)
 		correctAnswer, err = m.Calculate()
 		if err == nil {
 			break

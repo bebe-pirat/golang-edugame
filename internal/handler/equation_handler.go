@@ -26,7 +26,7 @@ type EquationHandler struct {
 }
 
 func NewEquationHandler(userRepo *repository.UserRepository, typeRepo *repository.TypeRepository, userProgressRepo *repository.UserProgressRepository) *EquationHandler {
-	tmpl := template.Must(template.ParseFiles("../../internal/templates/equation.html"))
+	tmpl := template.Must(template.ParseFiles("internal/templates/equation.html"))
 
 	return &EquationHandler{
 		tmpl:             tmpl,
@@ -102,7 +102,6 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 	typeStats, err := e.userProgressRepo.GetUserTypeStatistics(userId)
 	if err != nil {
 		fmt.Println("Ошибка получения статистики:", err)
-		// Продолжаем без адаптивной генерации
 	}
 
 	fmt.Printf("Пользователь: %s (ID: %d, Класс: %d)\n", user.Username, userId, class)

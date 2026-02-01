@@ -16,7 +16,7 @@ type LoginHandler struct {
 
 func NewLoginHandler(userRepo *repository.UserRepository) *LoginHandler {
 	tmpl := template.Must(template.ParseFiles(
-		"../../internal/templates/login.html",
+		"internal/templates/login.html",
 	))
 	return &LoginHandler{
 		userRepo: userRepo,
@@ -34,11 +34,13 @@ func (h *LoginHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 
 		switch role {
 		case "teacher":
-			http.Redirect(w, r, "/teacher_home", http.StatusSeeOther)
+			http.Redirect(w, r, "/teacher/class", http.StatusSeeOther)
 		case "student":
 			http.Redirect(w, r, "/home", http.StatusSeeOther)
+		case "director":
+			http.Redirect(w, r, "/director", http.StatusSeeOther)
 		default:
-			http.Redirect(w, r, "/home", http.StatusSeeOther)
+			http.Redirect(w, r, "/index", http.StatusSeeOther)
 		}
 		return
 	}
@@ -116,9 +118,9 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/home", http.StatusSeeOther)
 	case "teacher":
 		fmt.Println("1ghfdhf")
-		http.Redirect(w, r, "/teacher_home", http.StatusSeeOther)
-	// case "admin":
-	// 	http.Redirect(w, r, "/admin/dashboard", http.StatusSeeOther)
+		http.Redirect(w, r, "/teacher/class", http.StatusSeeOther)
+	case "director":
+		http.Redirect(w, r, "/director", http.StatusSeeOther)
 	default:
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}

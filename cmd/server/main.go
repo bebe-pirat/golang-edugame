@@ -5,6 +5,7 @@ import (
 	"edugame/internal/handler"
 	middleware "edugame/internal/midlleware"
 	"edugame/internal/repository"
+	"log"
 
 	"encoding/gob"
 	"fmt"
@@ -27,7 +28,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8800"
+		port = "3000"
 	}
 
 	teacherRepo := repository.NewTeacherRepository(database.DB)
@@ -46,7 +47,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/static/", http.StripPrefix("/static/",
-		http.FileServer(http.Dir("../../internal/static"))))
+		http.FileServer(http.Dir("internal/static"))))
 
 	mux.HandleFunc("/", indexHandler.IndexHandler)
 	mux.HandleFunc("/login", loginHandler.LoginPage)
@@ -55,39 +56,56 @@ func main() {
 	mux.HandleFunc("/auth/register", registrationHandler.Register)
 
 	mux.Handle("/home",
-		middleware.RequireRole("student")(http.HandlerFunc(homeHandler.HomePage)))
+		middleware.RequireRoles([]string{"student"})(http.HandlerFunc(homeHandler.HomePage)))
 
 	mux.Handle("/equation",
-		middleware.RequireRole("student")(http.HandlerFunc(equationHandler.EquationHandler)))
+		middleware.RequireRoles([]string{"student"})(http.HandlerFunc(equationHandler.EquationHandler)))
 
 	mux.Handle("/stats",
-		middleware.RequireRole("student")(http.HandlerFunc(statsHandler.StatsPage)))
+		middleware.RequireRoles([]string{"student"})(http.HandlerFunc(statsHandler.StatsPage)))
 
 	mux.Handle("/api/check",
-		middleware.RequireRole("student")(http.HandlerFunc(equationHandler.CheckAnswersHandler)))
+		middleware.RequireRoles([]string{"student"})(http.HandlerFunc(equationHandler.CheckAnswersHandler)))
 
-	mux.Handle("/teacher_home",
-		middleware.RequireRole("teacher")(http.HandlerFunc(teacherHandlers.TeacherHome)))
+	mux.Handle("/director",
+		middleware.RequireRoles([]string{"director"})(http.HandlerFunc(teacherHandlers.DirectorHome)))
 
-	mux.Handle("/teacher/class", middleware.RequireRole("teacher")(http.HandlerFunc(teacherHandlers.ClassStatistics)))
+	mux.Handle("/director/class",
+		middleware.RequireRoles([]string{"director"})(http.HandlerFunc(teacherHandlers.DirectorClassStats)))
+
+	mux.Handle("/director/student",
+		middleware.RequireRoles([]string{"director"})(http.HandlerFunc(teacherHandlers.DirectorStudentStatistics)))
+
+	mux.Handle("/director/student/attempts",
+		middleware.RequireRoles([]string{"director"})(http.HandlerFunc(teacherHandlers.DirectorStudentAttemptsByType)))
+
+	mux.Handle("/teacher/class", middleware.RequireRoles([]string{"teacher"})(http.HandlerFunc(teacherHandlers.ClassStatistics)))
 
 	mux.Handle("/teacher/student",
-		middleware.RequireRole("teacher")(http.HandlerFunc(teacherHandlers.StudentStatistics)))
+		middleware.RequireRoles([]string{"teacher"})(http.HandlerFunc(teacherHandlers.StudentStatistics)))
 
 	mux.Handle("/teacher/student/attempts",
-		middleware.RequireRole("teacher")(http.HandlerFunc(teacherHandlers.StudentAttemptsByType)))
+		middleware.RequireRoles([]string{"teacher"})(http.HandlerFunc(teacherHandlers.StudentAttemptsByType)))
 
 	mux.Handle("/logout",
 		middleware.RequireAuth(http.HandlerFunc(loginHandler.Logout)))
 
-	fmt.Printf("🚀 Сервер запущен на порту %s\n", port)
-	fmt.Println("📌 Публичные маршруты: /, /login, /register")
-	fmt.Println("🎓 Студентские маршруты: /home, /equation, /stats, /api/check")
-	fmt.Println("👨‍🏫 Учительские маршруты: /teacher_home, /teacher/class, /teacher/student")
+	certFile := "certs/localhost+2.pem"
+	keyFile := "certs/localhost+2-key.pem"
 
-	err = http.ListenAndServe(":"+port, mux)
+	if _, err := os.Stat(certFile); os.IsNotExist(err) {
+		log.Println("SSL сертификаты не найдены, запускаем HTTP сервер")
+		log.Printf("Сервер запущен на http://localhost:%s\n", port)
+		log.Fatal(http.ListenAndServe(":"+port, mux))
+	}
+
+	fmt.Printf("Сервер запущен на порту %s\n", port)
+	fmt.Println("Публичные маршруты: /, /login, /register")
+	fmt.Println("Студентские маршруты: /home, /equation, /stats, /api/check")
+	fmt.Println("Учительские маршруты: /teacher_home, /teacher/class, /teacher/student")
+
+	err = http.ListenAndServeTLS(":"+port, certFile, keyFile, mux)
 	if err != nil {
-		fmt.Printf("❌ Ошибка запуска сервера: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("❌ Ошибка запуска HTTPS сервера: %v\n", err)
 	}
 }

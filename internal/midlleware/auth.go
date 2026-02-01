@@ -59,21 +59,22 @@ func RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
-// RequireRole - middleware для проверки конкретной роли
-func RequireRole(requiredRole string) func(http.Handler) http.Handler {
+// RequireRoles - middleware для проверки нескольких ролей
+func RequireRoles(allowedRoles []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			session, _ := store.Get(r, "app-session")
 
-			role, ok := session.Values["role"].(string)
-			if !ok || role != requiredRole {
-				if role == "teacher" && requiredRole == "student" {
-					http.Redirect(w, r, "/teacher_home", http.StatusSeeOther)
-				} else if role == "student" && requiredRole == "teacher" {
-					http.Redirect(w, r, "/home", http.StatusSeeOther)
-				} else {
-					http.Redirect(w, r, "/login", http.StatusSeeOther)
+			role, _ := session.Values["role"].(string)
+			success := false
+			for _, value := range allowedRoles {
+				if role == value {
+					success = true
 				}
+			}
+
+			if !success {
+				http.Redirect(w, r, "/index", http.StatusSeeOther)
 				return
 			}
 

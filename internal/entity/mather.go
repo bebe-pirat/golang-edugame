@@ -6,9 +6,10 @@ type Mather struct {
 	infix             []string
 	postfix           []string
 	operationPriotiry map[string]int
+	maxResult         int
 }
 
-func NewMather(infix_ []string) *Mather {
+func NewMather(infix_ []string, maxResult int) *Mather {
 	return &Mather{
 		infix:   infix_,
 		postfix: make([]string, 0),
@@ -18,6 +19,7 @@ func NewMather(infix_ []string) *Mather {
 			"*": 2,
 			"/": 2,
 		},
+		maxResult: maxResult,
 	}
 }
 
