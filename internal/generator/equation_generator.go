@@ -2,7 +2,6 @@ package generator
 
 import (
 	"edugame/internal/entity"
-	// "fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -51,9 +50,6 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 
 	runes := []rune(t.Operation)
 	for i := 0; i < t.NumOperands; i++ {
-		// fmt.Println(t.Operands[i][0], t.Operands[i][1])
-		// fmt.Println(t.Name)
-		// fmt.Println(t.NumOperands)
 		vars[i] = strconv.Itoa(g.randSource.Intn(t.Operands[i][1]-t.Operands[i][0]) + t.Operands[i][0])
 		expr[i*2] = vars[i]
 		eqStr += vars[i]
@@ -80,6 +76,3 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 		EquationTypeId: t.ID,
 	}, nil
 }
-
-// полностью переписано)
-// УБРАТЬ ПОЛНОСТЬЮ fmt пакет и выводы
