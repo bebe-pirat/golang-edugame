@@ -48,25 +48,30 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 	expr := make([]string, cap(vars)+cap(ops))
 	var eqStr string = ""
 
-	runes := []rune(t.Operation)
-	for i := 0; i < t.NumOperands; i++ {
-		vars[i] = strconv.Itoa(g.randSource.Intn(t.Operands[i][1]-t.Operands[i][0]) + t.Operands[i][0])
-		expr[i*2] = vars[i]
-		eqStr += vars[i]
+	var correctAnswer int = 0
+	var err error
+	for {
+		runes := []rune(t.Operation)
+		for i := 0; i < t.NumOperands; i++ {
+			vars[i] = strconv.Itoa(g.randSource.Intn(t.Operands[i][1]-t.Operands[i][0]) + t.Operands[i][0])
+			expr[i*2] = vars[i]
+			eqStr += vars[i]
 
-		if i < cap(ops) {
-			ops[i] = string(runes[g.randSource.Intn(len(runes))])
-			expr[i*2+1] = ops[i]
-			eqStr += ops[i]
+			if i < cap(ops) {
+				ops[i] = string(runes[g.randSource.Intn(len(runes))])
+				expr[i*2+1] = ops[i]
+				eqStr += ops[i]
+			}
 		}
-	}
-	eqStr += "= ?"
+		eqStr += "= ?"
 
-	m := entity.NewMather(expr)
-	correctAnswer, err := m.Calculate()
-
-	if err != nil {
-		return Equation{}, err
+		m := entity.NewMather(expr)
+		correctAnswer, err = m.Calculate()
+		if err == nil {
+			break
+		} else {
+			eqStr = ""
+		}
 	}
 
 	return Equation{

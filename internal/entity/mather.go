@@ -129,16 +129,25 @@ func (m *Mather) calculatePostfix() (int, error) {
 func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 	switch op {
 	case "+":
+		if a+b <= 0 {
+			return 0, &CalculationError{"Under zero"}
+		}
 		return a + b, nil
 
 	case "-":
+		if a-b <= 0 {
+			return 0, &CalculationError{"Under zero"}
+		}
 		return a - b, nil
 
 	case "*":
+		if a*b <= 0 {
+			return 0, &CalculationError{"Under zero"}
+		}
 		return a * b, nil
 
 	case "/":
-		if b == 0 {
+		if b == 0 || a%b != 0 {
 			return 0, &CalculationError{"Division by zero"}
 		}
 		return a / b, nil
