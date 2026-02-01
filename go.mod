@@ -1,6 +1,6 @@
 module edugame
 
-go 1.25.5
+go 1.21
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.19.1 // indirect
