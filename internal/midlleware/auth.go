@@ -9,7 +9,6 @@ import (
 
 var store = sessions.NewCookieStore([]byte("a-very-secret-key"))
 
-// RequireAuth - middleware для проверки авторизации
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		publicPaths := []string{

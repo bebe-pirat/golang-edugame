@@ -126,15 +126,12 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Logout - выход из системы
 func (h *LoginHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// Удаляем сессию из БД
 	cookie, err := r.Cookie("session_token")
 	if err == nil {
 		h.userRepo.Logout(cookie.Value)
 	}
 
-	// Удаляем cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
 		Value:    "",
@@ -143,7 +140,6 @@ func (h *LoginHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 
-	// Удаляем сессию Gorilla
 	session, _ := store.Get(r, "app-session")
 	session.Options.MaxAge = -1 // Удаляем сессию
 	session.Save(r, w)

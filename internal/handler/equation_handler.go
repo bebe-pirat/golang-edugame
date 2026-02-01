@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"sort"
 
@@ -64,7 +65,7 @@ func NewEquationData(list []EquationWithID, class int) *EquationData {
 func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request) {
 	session, err := store.Get(r, "app-session")
 	if err != nil {
-		fmt.Println("Ошибка получения сессии:", err)
+		log.Println("Ошибка получения сессии:", err)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -77,7 +78,7 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 
 	user, err := e.userRepo.GetByID(userId)
 	if err != nil {
-		fmt.Println("Ошибка получения пользователя:", err)
+		log.Println("Ошибка получения пользователя:", err)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -89,34 +90,34 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 
 	class, err := e.userRepo.GetStudentClass(userId)
 	if err != nil {
-		fmt.Println("Ошибка получения класс: ", err)
+		log.Println("Ошибка получения класс: ", err)
 		return
 	}
 	listTypes, err := e.typeRepo.GetListTypes(class)
 	if err != nil {
-		fmt.Println("Ошибка получения типов уравнений:", err)
+		log.Println("Ошибка получения типов уравнений:", err)
 		http.Error(w, "Ошибка загрузки уравнений", http.StatusInternalServerError)
 		return
 	}
 
 	typeStats, err := e.userProgressRepo.GetUserTypeStatistics(userId)
 	if err != nil {
-		fmt.Println("Ошибка получения статистики:", err)
+		log.Println("Ошибка получения статистики:", err)
 	}
 
-	fmt.Printf("Пользователь: %s (ID: %d, Класс: %d)\n", user.Username, userId, class)
-	fmt.Printf("Типы уравнений для %d класса: %d\n", class, len(listTypes))
+	log.Printf("Пользователь: %s (ID: %d, Класс: %d)\n", user.Username, userId, class)
+	log.Printf("Типы уравнений для %d класса: %d\n", class, len(listTypes))
 
 	listEquations, err := e.generateAdaptiveEquations(listTypes, typeStats, userId)
 	if err != nil {
-		fmt.Println("Ошибка генерации уравнений:", err)
+		log.Println("Ошибка генерации уравнений:", err)
 		http.Error(w, "Ошибка генерации уравнений", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Printf("Сгенерировано %d уравнений:\n", len(listEquations))
+	log.Printf("Сгенерировано %d уравнений:\n", len(listEquations))
 	for i, eq := range listEquations {
-		fmt.Printf("  %d: %s (ответ: %s)\n", i+1, eq.Eq.Text, eq.Eq.CorrectAnswer)
+		log.Printf("  %d: %s (ответ: %s)\n", i+1, eq.Eq.Text, eq.Eq.CorrectAnswer)
 	}
 
 	session, _ = store.Get(r, "equations-session")
@@ -126,8 +127,8 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 	}
 	session.Values["correct_answers"] = correctAnswers
 	if err := session.Save(r, w); err != nil {
-		fmt.Println("Ошибка сохранения верных ответов в сессию")
-		fmt.Println("Error: ", err)
+		log.Println("Ошибка сохранения верных ответов в сессию")
+		log.Println("Error: ", err)
 		return
 	}
 
@@ -144,17 +145,15 @@ func (e *EquationHandler) generateAdaptiveEquations(
 ) ([]EquationWithID, error) {
 	const totalEquations = internal.CountEqs
 
-	// 1. Классифицируем типы уравнений по успеваемости
-	var weakTypes []generator.EquationType   // < 70% правильных
-	var mediumTypes []generator.EquationType // 70-90%
-	var strongTypes []generator.EquationType // > 90%
-	var newTypes []generator.EquationType    // нет статистики
+	var weakTypes []generator.EquationType
+	var mediumTypes []generator.EquationType
+	var strongTypes []generator.EquationType
+	var newTypes []generator.EquationType
 
 	for _, t := range types {
 		stat, exists := typeStats[t.ID]
 
 		if !exists || stat.Attempts == 0 {
-			// Нет статистики - новый тип
 			newTypes = append(newTypes, t)
 			continue
 		}
@@ -169,36 +168,28 @@ func (e *EquationHandler) generateAdaptiveEquations(
 			strongTypes = append(strongTypes, t)
 		}
 
-		fmt.Printf("Тип %d: попыток=%d, верно=%d, точность=%.1f%%\n",
+		log.Printf("Тип %d: попыток=%d, верно=%d, точность=%.1f%%\n",
 			t.ID, stat.Attempts, stat.Correct, accuracy)
 	}
 
-	// 2. Рассчитываем количество уравнений каждого типа
-	//    Базовая формула: слабые × 2, средние × 1, сильные × 0.5, новые × 1.5
-
-	// Веса для разных категорий
 	weights := map[string]float64{
-		"weak":   2.0, // В 2 раза чаще
-		"medium": 1.0, // Стандартная частота
-		"strong": 0.5, // В 2 раза реже
-		"new":    1.5, // Чаще новых для освоения
+		"weak":   2.0,
+		"medium": 1.0,
+		"strong": 0.5,
+		"new":    1.5,
 	}
 
-	// Рассчитываем общий вес
 	totalWeight := 0.0
 	totalWeight += float64(len(weakTypes)) * weights["weak"]
 	totalWeight += float64(len(mediumTypes)) * weights["medium"]
 	totalWeight += float64(len(strongTypes)) * weights["strong"]
 	totalWeight += float64(len(newTypes)) * weights["new"]
 
-	// Распределяем уравнения
 	equations := make([]EquationWithID, 0, totalEquations)
 	gen := generator.NewGenerator()
 
-	// 3. Генерируем уравнения в соответствии с распределением
 	equationIndex := 0
 
-	// Список всех типов с их весами для случайного выбора
 	type weightedType struct {
 		Type   generator.EquationType
 		Weight float64
@@ -207,7 +198,6 @@ func (e *EquationHandler) generateAdaptiveEquations(
 
 	weightedTypes := make([]weightedType, 0)
 
-	// Добавляем типы с весами
 	for _, t := range weakTypes {
 		weightedTypes = append(weightedTypes, weightedType{
 			Type:   t,
@@ -240,11 +230,8 @@ func (e *EquationHandler) generateAdaptiveEquations(
 		})
 	}
 
-	// 4. Алгоритм выбора типа уравнения
 	for equationIndex < totalEquations {
-		// Сортируем по количеству уже сгенерированных уравнений
 		sort.Slice(weightedTypes, func(i, j int) bool {
-			// Сначала выбираем те, которые генерировались меньше чем ожидалось
 			expectedI := float64(equationIndex+1) * weightedTypes[i].Weight / totalWeight
 			expectedJ := float64(equationIndex+1) * weightedTypes[j].Weight / totalWeight
 			ratioI := float64(weightedTypes[i].Count) / expectedI
@@ -252,13 +239,11 @@ func (e *EquationHandler) generateAdaptiveEquations(
 			return ratioI < ratioJ
 		})
 
-		// Выбираем тип из топ-3 кандидатов для разнообразия
 		candidates := weightedTypes
 		if len(weightedTypes) > 3 {
 			candidates = weightedTypes[:3]
 		}
 
-		// Выбираем случайный тип из кандидатов
 		selectedIdx := 0
 		if len(candidates) > 1 {
 			selectedIdx = gen.GetRandSource().Intn(len(candidates))
@@ -266,7 +251,6 @@ func (e *EquationHandler) generateAdaptiveEquations(
 
 		selectedType := candidates[selectedIdx].Type
 
-		// Генерируем уравнение
 		eq, err := gen.GenerateEquation(selectedType)
 		if err != nil {
 			return nil, err
@@ -274,7 +258,6 @@ func (e *EquationHandler) generateAdaptiveEquations(
 
 		equations = append(equations, *NewEquationWithID(eq, equationIndex))
 
-		// Обновляем счетчик
 		for i := range weightedTypes {
 			if weightedTypes[i].Type.ID == selectedType.ID {
 				weightedTypes[i].Count++
@@ -285,7 +268,6 @@ func (e *EquationHandler) generateAdaptiveEquations(
 		equationIndex++
 	}
 
-	// 5. Перемешиваем уравнения для разнообразия
 	shuffledEquations := make([]EquationWithID, len(equations))
 	perm := gen.GetRandSource().Perm(len(equations))
 	for i, v := range perm {
@@ -293,24 +275,16 @@ func (e *EquationHandler) generateAdaptiveEquations(
 		shuffledEquations[i] = equations[v]
 	}
 
-	// 6. Логируем распределение
-	fmt.Printf("\n=== АДАПТИВНАЯ ГЕНЕРАЦИЯ ===\n")
-	fmt.Printf("Слабые типы (<70%%): %d\n", len(weakTypes))
-	fmt.Printf("Средние типы (70-90%%): %d\n", len(mediumTypes))
-	fmt.Printf("Сильные типы (>90%%): %d\n", len(strongTypes))
-	fmt.Printf("Новые типы: %d\n", len(newTypes))
-	fmt.Printf("Итоговое распределение:\n")
-
 	for _, wt := range weightedTypes {
 		percentage := float64(wt.Count) / float64(totalEquations) * 100
 		stat, exists := typeStats[wt.Type.ID]
 
 		if exists && stat.Attempts > 0 {
 			accuracy := float64(stat.Correct) / float64(stat.Attempts) * 100
-			fmt.Printf("  Тип %d: %d уравнений (%.1f%%) - точность: %.1f%%\n",
+			log.Printf("  Тип %d: %d уравнений (%.1f%%) - точность: %.1f%%\n",
 				wt.Type.ID, wt.Count, percentage, accuracy)
 		} else {
-			fmt.Printf("  Тип %d: %d уравнений (%.1f%%) - новый\n",
+			log.Printf("  Тип %d: %d уравнений (%.1f%%) - новый\n",
 				wt.Type.ID, wt.Count, percentage)
 		}
 	}
@@ -370,7 +344,7 @@ func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Req
 	userId, err := getUserIdFromSession(r)
 
 	if err != nil {
-		fmt.Println("ошибка получения id")
+		log.Printf("ошибка получения id")
 	}
 
 	for i, answer := range request.Answers {
@@ -391,7 +365,7 @@ func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Req
 			"feedback":       feedback,
 		}
 
-		fmt.Println(answer.EquationTypeId, answer.EquationText)
+		log.Println(answer.EquationTypeId, answer.EquationText)
 		attempts = append(attempts, entity.NewAttempt(userId, answer.EquationTypeId, answer.EquationText, correctAnswer, answer.UserAnswer))
 	}
 
@@ -401,7 +375,7 @@ func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Req
 		for _, a := range attempts {
 			err := attemptRepo.SaveAttempt(a)
 			if err != nil {
-				fmt.Println("Error:", err)
+				log.Println("Error:", err)
 				break
 			}
 		}

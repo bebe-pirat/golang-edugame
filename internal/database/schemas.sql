@@ -31,11 +31,11 @@ CREATE TABLE IF NOT EXISTS equation_types (
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(50),
     password_hash VARCHAR(100) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin', 'director')),
     fullname VARCHAR(256) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    email VARCHAR(50),
 );
 
 -- 3. Таблица классов
@@ -200,22 +200,3 @@ CREATE TRIGGER trigger_create_user_progress_for_eq_type
 AFTER INSERT ON equation_types
 FOR EACH ROW
 EXECUTE FUNCTION create_user_progress_for_new_equation_type();
-
--- Создание тестового класса
-INSERT INTO classes (name, grade) VALUES ('3', 3), ('4', 4);
-
--- Создание тестового пользователя
-INSERT INTO users (username, email, password_hash, role, fullname) 
-VALUES ('тест', 'test@example.com', 'hashed_password', 'student', 'Тестовый Ученик');
-
--- Создание тестового учителя
-INSERT INTO users (username, email, password_hash, role, fullname) 
-VALUES ('учитель', 'teacher@example.com', 'hashed_password', 'teacher', 'Тестовый Учитель');
-
--- Создание тестового администратора
-INSERT INTO users (username, email, password_hash, role, fullname) 
-VALUES ('админ', 'admin@example.com', 'hashed_password', 'admin', 'Тестовый Админ');
-
--- Добавление ученика в класс
-INSERT INTO student_classes (student_id, class_id) 
-VALUES (1, 1);

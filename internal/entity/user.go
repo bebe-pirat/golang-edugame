@@ -1,4 +1,3 @@
-// internal/entity/user.go
 package entity
 
 import "time"
@@ -7,7 +6,7 @@ type User struct {
 	ID           int       `json:"id"`
 	Username     string    `json:"username"`
 	PasswordHash string    `json:"-"`
-	Role         string    `json:"role"` // 'student', 'teacher', 'admin'
+	Role         string    `json:"role"`
 	FullName     string    `json:"full_name"`
 	ClassID      *int      `json:"class_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`

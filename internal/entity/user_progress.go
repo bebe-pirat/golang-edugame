@@ -20,5 +20,3 @@ type UserProgress struct {
 	CreatedAt sql.NullString
 	UpdatedAt sql.NullString
 }
-
-// тут нечего делать

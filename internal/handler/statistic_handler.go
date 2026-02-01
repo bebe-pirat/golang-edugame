@@ -18,22 +18,18 @@ type StatsHandler struct {
 
 func NewStatsHandler(up *repository.UserProgressRepository, u *repository.UserRepository) *StatsHandler {
 	funcMap := template.FuncMap{
-		// Функция для расчета процентов
 		"percent": func(correct, total int) int {
 			if total == 0 {
 				return 0
 			}
 			return int(float64(correct) / float64(total) * 100)
 		},
-		// Функция для форматирования даты
 		"formatDate": func(dateStr string) string {
 			if dateStr == "" {
 				return "—"
 			}
-			// Простое форматирование
-			return dateStr[:10] // Берем только дату
+			return dateStr[:10] 
 		},
-		// Функция для проверки, больше ли нуля
 		"gt": func(a, b int) bool {
 			return a > b
 		},
@@ -102,14 +98,12 @@ func (h *StatsHandler) GetTotalAndCorrectCount(stats []entity.UserProgress) (int
 	return total, correct
 }
 
-// GetStats - API endpoint для получения статистики (JSON)
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Получаем user_id из запроса
 	userIDStr := r.URL.Query().Get("user_id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil || userID == 0 {
@@ -117,7 +111,6 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем статистику
 	stats, err := h.userProgressRepo.GetUserAllProgress(userID)
 	if err != nil {
 		http.Error(w, "Ошибка получения статистики", http.StatusInternalServerError)

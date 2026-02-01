@@ -3,8 +3,6 @@ package handler
 import "net/http"
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	// Удаляем все сессии
-
 	appSession, _ := store.Get(r, "app-session")
 	appSession.Options.MaxAge = -1
 	appSession.Save(r, w)

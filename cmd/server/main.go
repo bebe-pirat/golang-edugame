@@ -6,6 +6,7 @@ import (
 	middleware "edugame/internal/midlleware"
 	"edugame/internal/repository"
 	"log"
+	"time"
 
 	"encoding/gob"
 	"fmt"
@@ -90,22 +91,20 @@ func main() {
 	mux.Handle("/logout",
 		middleware.RequireAuth(http.HandlerFunc(loginHandler.Logout)))
 
-	certFile := "certs/localhost+2.pem"
-	keyFile := "certs/localhost+2-key.pem"
-
-	if _, err := os.Stat(certFile); os.IsNotExist(err) {
-		log.Println("SSL сертификаты не найдены, запускаем HTTP сервер")
-		log.Printf("Сервер запущен на http://localhost:%s\n", port)
-		log.Fatal(http.ListenAndServe(":"+port, mux))
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
-	fmt.Printf("Сервер запущен на порту %s\n", port)
-	fmt.Println("Публичные маршруты: /, /login, /register")
-	fmt.Println("Студентские маршруты: /home, /equation, /stats, /api/check")
-	fmt.Println("Учительские маршруты: /teacher_home, /teacher/class, /teacher/student")
+	log.Printf("Сервер запущен на порту %s\n", port)
+	log.Println("Публичные маршруты: /, /login, /register")
+	log.Println("Студентские маршруты: /home, /equation, /stats, /api/check")
+	log.Println("Учительские маршруты: /teacher_home, /teacher/class, /teacher/student")
 
-	err = http.ListenAndServeTLS(":"+port, certFile, keyFile, mux)
-	if err != nil {
-		log.Fatalf("❌ Ошибка запуска HTTPS сервера: %v\n", err)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal(err)
 	}
 }
