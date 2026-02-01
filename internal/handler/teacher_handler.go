@@ -94,6 +94,7 @@ func (h *TeacherHandlers) ClassStatistics(w http.ResponseWriter, r *http.Request
 	students, err := h.teacherRepo.GetClassStudents(classID)
 	if err != nil {
 		http.Error(w, "Ошибка получения учеников", http.StatusInternalServerError)
+		fmt.Println(err)
 		return
 	}
 	data := map[string]interface{}{

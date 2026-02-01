@@ -59,10 +59,9 @@ func (r *TeacherRepository) GetClassStudents(classID int) ([]struct {
 	ID       int
 	Username string
 	FullName string
-	Email    string
 }, error) {
 	query := `
-		SELECT u.id, u.username, u.fullname, u.email
+		SELECT u.id, u.username, u.fullname
 		FROM users u
 		JOIN student_classes sc ON u.id = sc.student_id
 		WHERE sc.class_id = $1 AND u.role = 'student'
@@ -79,7 +78,6 @@ func (r *TeacherRepository) GetClassStudents(classID int) ([]struct {
 		ID       int
 		Username string
 		FullName string
-		Email    string
 	}
 
 	for rows.Next() {
@@ -87,9 +85,8 @@ func (r *TeacherRepository) GetClassStudents(classID int) ([]struct {
 			ID       int
 			Username string
 			FullName string
-			Email    string
 		}
-		if err := rows.Scan(&student.ID, &student.Username, &student.FullName, &student.Email); err != nil {
+		if err := rows.Scan(&student.ID, &student.Username, &student.FullName); err != nil {
 			return nil, err
 		}
 		students = append(students, student)
@@ -97,12 +94,13 @@ func (r *TeacherRepository) GetClassStudents(classID int) ([]struct {
 
 	return students, nil
 }
+
 // Получить статистику по классу
 func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interface{}, error) {
-    stats := make(map[string]interface{})
+	stats := make(map[string]interface{})
 
-    // Основная статистика класса
-    query := `
+	// Основная статистика класса
+	query := `
         SELECT 
             COUNT(DISTINCT u.id) as student_count,
             COUNT(DISTINCT a.id) as total_attempts,
@@ -113,24 +111,24 @@ func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interfac
         WHERE sc.class_id = $1 AND u.role = 'student'
     `
 
-    var studentCount, totalAttempts, correctAttempts int
-    err := r.db.QueryRow(query, classID).Scan(&studentCount, &totalAttempts, &correctAttempts)
-    if err != nil {
-        return nil, err
-    }
+	var studentCount, totalAttempts, correctAttempts int
+	err := r.db.QueryRow(query, classID).Scan(&studentCount, &totalAttempts, &correctAttempts)
+	if err != nil {
+		return nil, err
+	}
 
-    stats["student_count"] = studentCount
-    stats["total_attempts"] = totalAttempts
-    stats["correct_attempts"] = correctAttempts
+	stats["student_count"] = studentCount
+	stats["total_attempts"] = totalAttempts
+	stats["correct_attempts"] = correctAttempts
 
-    if totalAttempts > 0 {
-        stats["accuracy_percent"] = float64(correctAttempts) / float64(totalAttempts) * 100
-    } else {
-        stats["accuracy_percent"] = 0
-    }
+	if totalAttempts > 0 {
+		stats["accuracy_percent"] = float64(correctAttempts) / float64(totalAttempts) * 100
+	} else {
+		stats["accuracy_percent"] = 0
+	}
 
-    // Активность по дням (последние 7 дней)
-    activityQuery := `
+	// Активность по дням (последние 7 дней)
+	activityQuery := `
         SELECT 
             DATE(a.created_at) as date,
             COUNT(*) as attempts,
@@ -144,36 +142,36 @@ func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interfac
         ORDER BY date DESC
     `
 
-    rows, err := r.db.Query(activityQuery, classID)
-    if err == nil {
-        defer rows.Close()
+	rows, err := r.db.Query(activityQuery, classID)
+	if err == nil {
+		defer rows.Close()
 
-        var activity []map[string]interface{}
-        for rows.Next() {
-            var date time.Time
-            var attempts, correct int
+		var activity []map[string]interface{}
+		for rows.Next() {
+			var date time.Time
+			var attempts, correct int
 
-            if err := rows.Scan(&date, &attempts, &correct); err != nil {
-                continue
-            }
+			if err := rows.Scan(&date, &attempts, &correct); err != nil {
+				continue
+			}
 
-            activity = append(activity, map[string]interface{}{
-                "date":     date.Format("02.01"),
-                "attempts": attempts,
-                "correct":  correct,
-                "accuracy": func() float64 {
-                    if attempts > 0 {
-                        return float64(correct) / float64(attempts) * 100
-                    }
-                    return 0
-                }(),
-            })
-        }
-        stats["activity"] = activity
-    }
+			activity = append(activity, map[string]interface{}{
+				"date":     date.Format("02.01"),
+				"attempts": attempts,
+				"correct":  correct,
+				"accuracy": func() float64 {
+					if attempts > 0 {
+						return float64(correct) / float64(attempts) * 100
+					}
+					return 0
+				}(),
+			})
+		}
+		stats["activity"] = activity
+	}
 
-    // Статистика по типам уравнений
-    typeStatsQuery := `
+	// Статистика по типам уравнений
+	typeStatsQuery := `
         SELECT 
             et.name as type_name,
             COUNT(a.id) as attempts,
@@ -188,36 +186,36 @@ func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interfac
         ORDER BY attempts DESC
     `
 
-    typeRows, err := r.db.Query(typeStatsQuery, classID)
-    if err == nil {
-        defer typeRows.Close()
+	typeRows, err := r.db.Query(typeStatsQuery, classID)
+	if err == nil {
+		defer typeRows.Close()
 
-        var typeStats []map[string]interface{}
-        for typeRows.Next() {
-            var typeName string
-            var attempts, correct int
+		var typeStats []map[string]interface{}
+		for typeRows.Next() {
+			var typeName string
+			var attempts, correct int
 
-            if err := typeRows.Scan(&typeName, &attempts, &correct); err != nil {
-                continue
-            }
+			if err := typeRows.Scan(&typeName, &attempts, &correct); err != nil {
+				continue
+			}
 
-            typeStats = append(typeStats, map[string]interface{}{
-                "type_name": typeName,
-                "attempts":  attempts,
-                "correct":   correct,
-                "accuracy": func() float64 {
-                    if attempts > 0 {
-                        return float64(correct) / float64(attempts) * 100
-                    }
-                    return 0
-                }(),
-            })
-        }
-        stats["type_statistics"] = typeStats
-    }
+			typeStats = append(typeStats, map[string]interface{}{
+				"type_name": typeName,
+				"attempts":  attempts,
+				"correct":   correct,
+				"accuracy": func() float64 {
+					if attempts > 0 {
+						return float64(correct) / float64(attempts) * 100
+					}
+					return 0
+				}(),
+			})
+		}
+		stats["type_statistics"] = typeStats
+	}
 
-    // Топ учеников
-    topStudentsQuery := `
+	// Топ учеников
+	topStudentsQuery := `
         SELECT 
             u.id,
             u.fullname,
@@ -232,36 +230,36 @@ func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interfac
         LIMIT 5
     `
 
-    studentRows, err := r.db.Query(topStudentsQuery, classID)
-    if err == nil {
-        defer studentRows.Close()
+	studentRows, err := r.db.Query(topStudentsQuery, classID)
+	if err == nil {
+		defer studentRows.Close()
 
-        var topStudents []map[string]interface{}
-        for studentRows.Next() {
-            var studentID, total, correct int
-            var fullname string
+		var topStudents []map[string]interface{}
+		for studentRows.Next() {
+			var studentID, total, correct int
+			var fullname string
 
-            if err := studentRows.Scan(&studentID, &fullname, &total, &correct); err != nil {
-                continue
-            }
+			if err := studentRows.Scan(&studentID, &fullname, &total, &correct); err != nil {
+				continue
+			}
 
-            topStudents = append(topStudents, map[string]interface{}{
-                "id":      studentID,
-                "name":    fullname,
-                "total":   total,
-                "correct": correct,
-                "accuracy": func() float64 {
-                    if total > 0 {
-                        return float64(correct) / float64(total) * 100
-                    }
-                    return 0
-                }(),
-            })
-        }
-        stats["top_students"] = topStudents
-    }
+			topStudents = append(topStudents, map[string]interface{}{
+				"id":      studentID,
+				"name":    fullname,
+				"total":   total,
+				"correct": correct,
+				"accuracy": func() float64 {
+					if total > 0 {
+						return float64(correct) / float64(total) * 100
+					}
+					return 0
+				}(),
+			})
+		}
+		stats["top_students"] = topStudents
+	}
 
-    return stats, nil
+	return stats, nil
 }
 
 // Получить статистику ученика
@@ -270,13 +268,13 @@ func (r *TeacherRepository) GetStudentStatistics(studentID int) (map[string]inte
 
 	// Информация об ученике
 	studentQuery := `
-		SELECT u.username, u.fullname, u.email, u.created_at
+		SELECT u.username, u.fullname, u.created_at
 		FROM users u
 		WHERE u.id = $1
 	`
 
-	var username, fullname, email, createdAt string
-	err := r.db.QueryRow(studentQuery, studentID).Scan(&username, &fullname, &email, &createdAt)
+	var username, fullname, createdAt string
+	err := r.db.QueryRow(studentQuery, studentID).Scan(&username, &fullname, &createdAt)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +283,6 @@ func (r *TeacherRepository) GetStudentStatistics(studentID int) (map[string]inte
 		"id":         studentID,
 		"username":   username,
 		"fullname":   fullname,
-		"email":      email,
 		"created_at": createdAt,
 	}
 
@@ -515,7 +512,6 @@ func (r *TeacherRepository) GetClassStudentsWithStats(classID int) ([]map[string
             u.id,
             u.username,
             u.fullname,
-            u.email,
             COALESCE(COUNT(a.id), 0) as total_attempts,
             COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts,
             MAX(a.created_at) as last_activity
@@ -523,7 +519,7 @@ func (r *TeacherRepository) GetClassStudentsWithStats(classID int) ([]map[string
         JOIN student_classes sc ON u.id = sc.student_id
         LEFT JOIN attempts a ON u.id = a.user_id
         WHERE sc.class_id = $1 AND u.role = 'student'
-        GROUP BY u.id, u.username, u.fullname, u.email
+        GROUP BY u.id, u.username, u.fullname
         ORDER BY u.fullname
     `
 
@@ -536,10 +532,10 @@ func (r *TeacherRepository) GetClassStudentsWithStats(classID int) ([]map[string
 	var students []map[string]interface{}
 	for rows.Next() {
 		var studentID, totalAttempts, correctAttempts int
-		var username, fullname, email string
+		var username, fullname string
 		var lastActivity sql.NullTime
 
-		if err := rows.Scan(&studentID, &username, &fullname, &email, &totalAttempts, &correctAttempts, &lastActivity); err != nil {
+		if err := rows.Scan(&studentID, &username, &fullname, &totalAttempts, &correctAttempts, &lastActivity); err != nil {
 			continue
 		}
 
@@ -552,7 +548,6 @@ func (r *TeacherRepository) GetClassStudentsWithStats(classID int) ([]map[string
 			"id":               studentID,
 			"username":         username,
 			"fullname":         fullname,
-			"email":            email,
 			"total_attempts":   totalAttempts,
 			"correct_attempts": correctAttempts,
 			"accuracy":         accuracy,

@@ -21,7 +21,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 // Регистрация пользователя
-func (r *UserRepository) Register(username, email, password, role, fullName string, classID int) (*entity.User, error) {
+func (r *UserRepository) Register(username, password, role, fullName string, classID int) (*entity.User, error) {
 	// Хэшируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -30,12 +30,12 @@ func (r *UserRepository) Register(username, email, password, role, fullName stri
 
 	var userID int
 	query := `
-        INSERT INTO users (username, email, password_hash, role, fullname)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO users (username, password_hash, role, fullname)
+        VALUES ($1, $2, $3, $4)
         RETURNING id
     `
 
-	err = r.db.QueryRow(query, username, email, string(hashedPassword), role, fullName).Scan(&userID)
+	err = r.db.QueryRow(query, username, string(hashedPassword), role, fullName).Scan(&userID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,13 +60,13 @@ func (r *UserRepository) Login(username, password string) (*entity.User, error) 
 	var passwordHash string
 
 	query := `
-        SELECT id, username, email, password_hash, role, fullname, created_at
+        SELECT id, username, password_hash, role, fullname, created_at
         FROM users 
-        WHERE username = $1 OR email = $1
+        WHERE username = $1
     `
 
 	err := r.db.QueryRow(query, username).Scan(
-		&user.ID, &user.Username, &user.Email, &passwordHash,
+		&user.ID, &user.Username, &passwordHash,
 		&user.Role, &user.FullName, &user.CreatedAt,
 	)
 
@@ -106,14 +106,14 @@ func (r *UserRepository) GetBySessionToken(token string) (*entity.User, error) {
 	var user entity.User
 
 	query := `
-        SELECT u.id, u.username, u.email, u.role, u.fullname, u.created_at
+        SELECT u.id, u.username u.role, u.fullname, u.created_at
         FROM users u
         JOIN user_sessions s ON u.id = s.user_id
         WHERE s.session_token = $1 AND s.expires_at > NOW()
     `
 
 	err := r.db.QueryRow(query, token).Scan(
-		&user.ID, &user.Username, &user.Email, &user.Role,
+		&user.ID, &user.Username, &user.Role,
 		&user.FullName, &user.CreatedAt,
 	)
 
@@ -135,12 +135,12 @@ func (r *UserRepository) GetByID(id int) (*entity.User, error) {
 	var user entity.User
 
 	query := `
-        SELECT id, username, email, role, fullname, created_at
+        SELECT id, username, role, fullname, created_at
         FROM users WHERE id = $1
     `
 
 	err := r.db.QueryRow(query, id).Scan(
-		&user.ID, &user.Username, &user.Email, &user.Role,
+		&user.ID, &user.Username, &user.Role,
 		&user.FullName, &user.CreatedAt,
 	)
 
@@ -150,7 +150,7 @@ func (r *UserRepository) GetByID(id int) (*entity.User, error) {
 // Получение учеников класса (для учителя)
 func (r *UserRepository) GetStudentsByClass(classID int) ([]entity.User, error) {
 	query := `
-        SELECT u.id, u.username, u.email, u.role, u.fullname, u.created_at
+        SELECT u.id, u.username, u.role, u.fullname, u.created_at
         FROM users u
         JOIN student_classes sc ON u.id = sc.student_id
         WHERE u.role = 'student' AND sc.class_id = $1
@@ -167,7 +167,7 @@ func (r *UserRepository) GetStudentsByClass(classID int) ([]entity.User, error) 
 	for rows.Next() {
 		var user entity.User
 		err := rows.Scan(
-			&user.ID, &user.Username, &user.Email, &user.Role,
+			&user.ID, &user.Username, &user.Role,
 			&user.FullName, &user.CreatedAt,
 		)
 		if err != nil {

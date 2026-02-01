@@ -60,7 +60,6 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Получаем значения из формы
 	username := r.FormValue("username")
-	email := r.FormValue("email")
 	password := r.FormValue("password")
 	fullName := r.FormValue("full_name")
 	role := r.FormValue("role")
@@ -75,7 +74,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Регистрируем пользователя
-	user, err := h.userRepo.Register(username, email, password, role, fullName, classID)
+	user, err := h.userRepo.Register(username, password, role, fullName, classID)
 	if err != nil {
 		// Если ошибка - показываем форму снова, но с сохраненными данными
 		classes, _ := h.userRepo.GetAllClasses()
@@ -85,7 +84,6 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 			"Classes": classes,
 			"Form": map[string]string{
 				"username":  username,
-				"email":     email,
 				"full_name": fullName,
 				"role":      role,
 			},

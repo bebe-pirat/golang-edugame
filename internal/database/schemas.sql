@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS equation_types (
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(50),
     password_hash VARCHAR(100) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin')),
     fullname VARCHAR(256) NOT NULL,

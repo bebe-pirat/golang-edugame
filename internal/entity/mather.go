@@ -109,7 +109,7 @@ func (m *Mather) calculatePostfix() (int, error) {
 			b := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
 
-			result, err := m.calculateOperation(a, b, token)
+			result, err := m.calculateOperation(b, a, token)
 
 			if err != nil {
 				return 0, err
@@ -159,5 +159,3 @@ func (m *Mather) Calculate() (int, error) {
 
 	return m.calculatePostfix()
 }
-
-// сделано
