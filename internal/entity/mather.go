@@ -134,6 +134,9 @@ func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 		if a+b <= 0 {
 			return 0, &CalculationError{"Under zero"}
 		}
+		if a+b > m.maxResult {
+			return 0, &CalculationError{"Over max border"}
+		}
 		return a + b, nil
 
 	case "-":
@@ -145,6 +148,9 @@ func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 	case "*":
 		if a*b <= 0 {
 			return 0, &CalculationError{"Under zero"}
+		}
+		if a*b > m.maxResult {
+			return 0, &CalculationError{"Over max border"}
 		}
 		return a * b, nil
 
