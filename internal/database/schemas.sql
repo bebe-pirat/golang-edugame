@@ -116,7 +116,7 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_toke
 -- Заполнение типов уравнений
 INSERT INTO equation_types 
 (class, name, description, operation, num_operands, 
- operand1_min, operand1_max, operand2_min, operand2_max, result_max, no_remainder, is_available) VALUES
+operand1_min, operand1_max, operand2_min, operand2_max, result_max, no_remainder, is_available) VALUES
 
 -- 3 класс (основные)
 (3, 'Сложение/вычитание (2-знач. с 1-знач.)', 'До 90', '+-', 2, 10, 90, 1, 9, 90, FALSE),
@@ -127,8 +127,8 @@ INSERT INTO equation_types
 -- 3 класс (будущие расширения - пока is_active = FALSE)
 (3, 'Выражение из 3 операндов', 'До 33', '+-*/', 3, 1, 33, 1, 33, 100, FALSE),
 (3, 'Выражение из 4 операндов', 'До 20', '+-*/', 4, 1, 20, 1, 20, 100, FALSE),
-(4, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 1000', '+-', 2, 100, 1000, 100, 1000, 1000, FALSE, FALSE),
-(4, 'Сложение/вычитание (3-знач. с 2-знач.)', 'До 1000', '+-', 2, 100, 1000, 10, 100, 1000, FALSE, FALSE),
+(3, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 1000', '+-', 2, 100, 1000, 100, 1000, 1000, FALSE, FALSE),
+(3, 'Сложение/вычитание (3-знач. с 2-знач.)', 'До 1000', '+-', 2, 100, 1000, 10, 100, 1000, FALSE, FALSE),
 (3, 'Умножение (3-знач. на 1-знач.)', 'До 1000', '*', 2, 100, 999, 2, 9, 1000, FALSE, FALSE),
 (3, 'Деление (3-знач. на 1-знач.)', 'До 1000', '/', 2, 100, 999, 2, 9, 1000, FALSE, FALSE),
 
@@ -188,7 +188,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Для каждого ученика, который находится в классе с таким уровнем
     INSERT INTO user_progress (user_id, equation_type_id, is_unlocked, first_unlocked_at)
-    SELECT sc.student_id, NEW.id, NEW.is_avalable, CURRENT_TIMESTAMP
+    SELECT sc.student_id, NEW.id, NEW.is_available, CURRENT_TIMESTAMP
     FROM student_classes sc
     JOIN classes c ON c.id = sc.class_id
     WHERE c.grade = NEW.class
