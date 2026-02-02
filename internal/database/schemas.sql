@@ -127,7 +127,7 @@ INSERT INTO equation_types
 -- 3 класс (будущие расширения - пока is_active = FALSE)
 (3, 'Выражение из 3 операндов', 'До 33', '+-*/', 3, 1, 33, 1, 33, 100, FALSE),
 (3, 'Выражение из 4 операндов', 'До 20', '+-*/', 4, 1, 20, 1, 20, 100, FALSE),
-(4, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 1000', '+-', 2, 100, 1000, 10, 100, 1000, FALSE, FALSE),
+(4, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 1000', '+-', 2, 100, 1000, 100, 1000, 1000, FALSE, FALSE),
 (4, 'Сложение/вычитание (3-знач. с 2-знач.)', 'До 1000', '+-', 2, 100, 1000, 10, 100, 1000, FALSE, FALSE),
 (3, 'Умножение (3-знач. на 1-знач.)', 'До 1000', '*', 2, 100, 999, 2, 9, 1000, FALSE, FALSE),
 (3, 'Деление (3-знач. на 1-знач.)', 'До 1000', '/', 2, 100, 999, 2, 9, 1000, FALSE, FALSE),
@@ -167,7 +167,7 @@ BEGIN
     
     -- Для каждого типа уравнения, который соответствует уровню класса
     INSERT INTO user_progress (user_id, equation_type_id, is_unlocked, first_unlocked_at)
-    SELECT NEW.student_id, et.id, TRUE, CURRENT_TIMESTAMP
+    SELECT NEW.student_id, et.id, et.is_avalable, CURRENT_TIMESTAMP
     FROM equation_types et
     WHERE et.class = class_grade
     ON CONFLICT (user_id, equation_type_id) DO NOTHING;
@@ -188,7 +188,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Для каждого ученика, который находится в классе с таким уровнем
     INSERT INTO user_progress (user_id, equation_type_id, is_unlocked, first_unlocked_at)
-    SELECT sc.student_id, NEW.id, TRUE, CURRENT_TIMESTAMP
+    SELECT sc.student_id, NEW.id, NEW.is_avalable, CURRENT_TIMESTAMP
     FROM student_classes sc
     JOIN classes c ON c.id = sc.class_id
     WHERE c.grade = NEW.class
@@ -204,3 +204,34 @@ CREATE TRIGGER trigger_create_user_progress_for_eq_type
 AFTER INSERT ON equation_types
 FOR EACH ROW
 EXECUTE FUNCTION create_user_progress_for_new_equation_type();
+
+CREATE OR REPLACE FUNCTION sync_equation_type_availability()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Если изменился статус доступности
+    IF OLD.is_available IS DISTINCT FROM NEW.is_available THEN
+        -- Обновляем статус разблокировки у всех пользователей
+        UPDATE user_progress 
+        SET is_unlocked = NEW.is_available,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE equation_type_id = NEW.id;
+        
+        -- Если тип стал доступным, устанавливаем дату первого разблокирования
+        IF NEW.is_available = TRUE AND OLD.is_available = FALSE THEN
+            UPDATE user_progress 
+            SET first_unlocked_at = CURRENT_TIMESTAMP
+            WHERE equation_type_id = NEW.id 
+              AND first_unlocked_at IS NULL;
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 2. Триггер на обновление equation_types
+CREATE TRIGGER trigger_sync_equation_type_availability
+AFTER UPDATE ON equation_types
+FOR EACH ROW
+WHEN (OLD.is_available IS DISTINCT FROM NEW.is_available)
+EXECUTE FUNCTION sync_equation_type_availability();

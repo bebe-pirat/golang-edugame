@@ -18,7 +18,7 @@ func (r *TypeRepository) GetListTypes(class int) ([]generator.EquationType, erro
 	query := `
         SELECT id, class, name, description, operation, num_operands, operand1_min, operand1_max, operand2_min, operand2_max, COALESCE(operand3_min, -1), COALESCE(operand3_max, -1), COALESCE(operand4_min, -1), COALESCE(operand4_max, -1), no_remainder, COALESCE(result_max, -1)
         FROM equation_types
-        WHERE grade = $1
+        WHERE class = $1 && is_available = TRUE
     `
 
 	types := make([]generator.EquationType, 0)
