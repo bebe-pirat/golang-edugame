@@ -1,9 +1,6 @@
 package entity
 
-import (
-	"edugame/internal"
-	"strconv"
-)
+import "strconv"
 
 type Mather struct {
 	infix             []string
@@ -19,8 +16,8 @@ func NewMather(infix_ []string, maxResult int) *Mather {
 		operationPriotiry: map[string]int{
 			"+": 1,
 			"-": 1,
-			"*": 2,
-			"/": 2,
+			"●": 2,
+			"÷": 2,
 		},
 		maxResult: maxResult,
 	}
@@ -53,7 +50,7 @@ func (m *Mather) infixExprToPostfix() {
 				output = append(output, top)
 			}
 
-		case internal.SumSimbol, internal.MultSimbol, internal.DivSimbol, internal.SubSimbol:
+		case "+", "-", "●", "/":
 			for len(stack) > 0 {
 				top := stack[len(stack)-1]
 
@@ -133,7 +130,7 @@ func (m *Mather) calculatePostfix() (int, error) {
 
 func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 	switch op {
-	case internal.SumSimbol:
+	case "+":
 		if a+b <= 0 {
 			return 0, &CalculationError{"Under zero"}
 		}
@@ -142,13 +139,13 @@ func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 		}
 		return a + b, nil
 
-	case internal.SubSimbol:
+	case "-":
 		if a-b <= 0 {
 			return 0, &CalculationError{"Under zero"}
 		}
 		return a - b, nil
 
-	case internal.MultSimbol:
+	case "●":
 		if a*b <= 0 {
 			return 0, &CalculationError{"Under zero"}
 		}
@@ -157,7 +154,7 @@ func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 		}
 		return a * b, nil
 
-	case internal.DivSimbol:
+	case "÷":
 		if b == 0 || a%b != 0 {
 			return 0, &CalculationError{"Division by zero"}
 		}
