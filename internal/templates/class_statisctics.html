@@ -53,6 +53,125 @@
         </div>
         {{end}}
 
+        <!-- Ежедневные результаты по 10 примерам -->
+        {{if .DailyResults}}
+        <div class="daily-results">
+            <h2 class="section-title">📅 Ежедневные результаты учеников (по 10 примеров)</h2>
+            
+            <!-- Навигация по датам -->
+            <div class="date-selector">
+                <div class="date-range">
+                    За неделю: {{.WeekStart}} - {{.WeekEnd}}
+                </div>
+                <div class="prev-next-buttons">
+                    <button class="nav-btn" onclick="changeWeek(-1)">← Предыдущая</button>
+                    <button class="nav-btn today-btn" onclick="goToToday()">Сегодня</button>
+                    <button class="nav-btn" onclick="changeWeek(1)">Следующая →</button>
+                </div>
+            </div>
+            
+            <!-- Легенда -->
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #d4edda;"></div>
+                    <span>10/10 (Отлично)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #fff3cd;"></div>
+                    <span>8-9/10 (Хорошо)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffeaa7;"></div>
+                    <span>6-7/10 (Средне)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f8d7da;"></div>
+                    <span>0-5/10 (Слабо)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f8f9fa;"></div>
+                    <span>Нет результатов</span>
+                </div>
+            </div>
+            
+            <!-- Таблица результатов -->
+            <div class="daily-results-table-container">
+                <table class="daily-results-table">
+                    <thead>
+                        <tr>
+                            <th class="student-name-col">Ученик</th>
+                            {{range .DailyResults.Dates}}
+                            <th class="date-header">
+                                {{.Weekday}}<br>
+                                {{.Date}}
+                            </th>
+                            {{end}}
+                            <th>Среднее</th>
+                            <th>Всего попыток</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .DailyResults.Students}}
+                        <tr>
+                            <td class="student-name-col">
+                                {{.FullName}}
+                                {{if .IsActive}}
+                                <span class="active-badge" style="color: green; font-size: 12px;">●</span>
+                                {{end}}
+                            </td>
+                            {{range .DailyResults}}
+                            <td class="result-cell">
+                                {{if .Results}}
+                                <div class="multiple-results">
+                                    {{range .Results}}
+                                    <div class="result-item {{.CSSClass}}">
+                                        {{.Correct}}/10
+                                    </div>
+                                    {{end}}
+                                </div>
+                                {{else}}
+                                <div class="no-result">-</div>
+                                {{end}}
+                            </td>
+                            {{end}}
+                            <td>
+                                {{if .AverageScore}}
+                                <strong>{{printf "%.1f" .AverageScore}}/10</strong>
+                                {{else}}
+                                <div class="no-result">-</div>
+                                {{end}}
+                            </td>
+                            <td>
+                                <strong>{{.TotalAttempts}}</strong>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Сводка -->
+            <div class="results-summary">
+                <div class="summary-item">
+                    <div class="summary-value">{{.DailyStats.AvgDailyAttempts}}</div>
+                    <div class="summary-label">Среднее попыток в день</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">{{printf "%.1f" .DailyStats.AvgScore}}/10</div>
+                    <div class="summary-label">Средний балл</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">{{.DailyStats.TotalSessions}}</div>
+                    <div class="summary-label">Всего сессий</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">{{.DailyStats.PerfectSessions}}</div>
+                    <div class="summary-label">Идеальных сессий</div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
         <!-- Топ учеников -->
         {{if .Stats.top_students}}
         <div class="top-students">
@@ -107,10 +226,10 @@
             {{end}}
         </div>
 
-        <!-- Статистика по типам примерв -->
+        <!-- Статистика по типам уравнений -->
         {{if .Stats.type_statistics}}
         <div class="types-section">
-            <h2 class="section-title">📈 Статистика по типам примеров</h2>
+            <h2 class="section-title">📈 Статистика по типам уравнений</h2>
             <div class="types-grid">
                 {{range .Stats.type_statistics}}
                 <div class="type-card">
@@ -138,5 +257,27 @@
         </div>
         {{end}}
     </div>
+
+    <script>
+        function changeWeek(weeks) {
+            const url = new URL(window.location.href);
+            const currentWeek = url.searchParams.get('week') || 'current';
+            
+            if (currentWeek === 'current') {
+                url.searchParams.set('week', weeks);
+            } else {
+                const weekNum = parseInt(currentWeek) + weeks;
+                url.searchParams.set('week', weekNum);
+            }
+            
+            window.location.href = url.toString();
+        }
+        
+        function goToToday() {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('week');
+            window.location.href = url.toString();
+        }
+    </script>
 </body>
 </html>
