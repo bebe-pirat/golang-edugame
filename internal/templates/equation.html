@@ -89,27 +89,21 @@
             const answers = [];
             const overallResult = document.getElementById('overall-result');
             
-            // Собираем все ответы
+            // Собираем все ответы, включая пустые
             inputs.forEach(input => {
                 const userAnswer = input.value.trim();
-                if (userAnswer) {
-                    const equationId = input.getAttribute('data-equation-id');
-                    const equationItem = document.getElementById('equation-' + equationId);
-                    const equationTextElement = equationItem.querySelector('.equation-text');
-                    
-                    answers.push({
-                        equation_id: parseInt(equationId),
-                        user_answer: userAnswer,
-                        equation_text: equationTextElement.getAttribute('data-equation-text'),
-                        equation_type_id: parseInt(equationTextElement.getAttribute('data-equation-type-id')),
-                    });
-                }
+                const equationId = input.getAttribute('data-equation-id');
+                const equationItem = document.getElementById('equation-' + equationId);
+                const equationTextElement = equationItem.querySelector('.equation-text');
+                
+                // Отправляем ВСЕ уравнения, даже с пустыми ответами
+                answers.push({
+                    equation_id: parseInt(equationId),
+                    user_answer: userAnswer, // может быть пустой строкой
+                    equation_text: equationTextElement.getAttribute('data-equation-text'),
+                    equation_type_id: parseInt(equationTextElement.getAttribute('data-equation-type-id')),
+                });
             });
-            
-            if (answers.length === 0) {
-                showNotification('Введите хотя бы один ответ', 'warning');
-                return;
-            }
             
             // Показываем загрузку
             overallResult.textContent = '⏳ Проверяем все ответы...';
@@ -123,7 +117,11 @@
                 const response = await fetch('/api/check', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ answers: answers })
+                    body: JSON.stringify({ 
+                        answers: answers,
+                        // Добавляем информацию о том, что это проверка всех
+                        check_all: true 
+                    })
                 });
                 
                 const data = await response.json();
@@ -133,29 +131,54 @@
                 overallResult.style.background = data.correct > 0 ? '#d4edda' : '#f8d7da';
                 overallResult.style.color = data.correct > 0 ? '#155724' : '#721c24';
                 
-                // Обновляем результаты для каждого примеры
+                // Обновляем результаты для каждого примера
                 if (data.results) {
                     data.results.forEach(result => {
                         const input = document.getElementById('answer-' + result.equation_id);
                         const resultSpan = document.getElementById('result-' + result.equation_id);
                         
-                        if (result.is_correct) {
+                        if (result.status === 'correct') {
+                            // Правильный ответ
                             resultSpan.textContent = '✅ Правильно!';
                             resultSpan.className = 'result correct';
                             if (input) input.style.borderColor = '#2ecc71';
-                        } else {
+                        } else if (result.status === 'incorrect') {
+                            // Неправильный ответ
                             resultSpan.textContent = `❌ Правильно: ${result.correct_answer}`;
                             resultSpan.className = 'result incorrect';
                             if (input) input.style.borderColor = '#e74c3c';
+                        } else if (result.status === 'skipped') {
+                            // Пропущенный (пустой ответ)
+                            resultSpan.textContent = '⏭️ Пропущено';
+                            resultSpan.className = 'result skipped';
+                            if (input) {
+                                input.style.borderColor = '#ffc107';
+                                input.style.background = '#fff3cd';
+                            }
                         }
                     });
                 }
                 
-                // Показываем уведомление
+                // Показываем уведомление с полной статистикой
                 const correctCount = data.correct || 0;
-                const totalCount = answers.length;
-                showNotification(`Правильно ${correctCount} из ${totalCount} (${Math.round(correctCount/totalCount*100)}%)`, 
-                    correctCount === totalCount ? 'success' : 'warning');
+                const incorrectCount = data.incorrect || 0;
+                const skippedCount = data.skipped || 0;
+                const answeredCount = correctCount + incorrectCount;
+                const totalCount = inputs.length;
+                
+                let notificationText = '';
+                if (skippedCount === totalCount) {
+                    notificationText = `Вы пропустили все ${totalCount} примеров`;
+                } else if (answeredCount === 0) {
+                    notificationText = `Все примеры пропущены (${skippedCount})`;
+                } else {
+                    const percentage = Math.round(correctCount / answeredCount * 100);
+                    notificationText = `Правильно ${correctCount} из ${answeredCount} (${percentage}%), пропущено: ${skippedCount}`;
+                }
+                
+                showNotification(notificationText, 
+                    correctCount === answeredCount && answeredCount > 0 ? 'success' : 
+                    skippedCount === totalCount ? 'warning' : 'info');
                 
             } catch (error) {
                 console.error('Ошибка:', error);
@@ -169,7 +192,7 @@
             }
         }
         
-        // Обработчики событий
+        // Обработчики событий остаются без изменений
         document.addEventListener('DOMContentLoaded', function() {
             // Обработчик кнопки "Проверить все"
             const checkAllBtn = document.getElementById('check-all-button');
