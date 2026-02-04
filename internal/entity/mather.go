@@ -1,6 +1,9 @@
 package entity
 
-import "strconv"
+import (
+	"edugame/internal"
+	"strconv"
+)
 
 type Mather struct {
 	infix             []string
@@ -50,7 +53,7 @@ func (m *Mather) infixExprToPostfix() {
 				output = append(output, top)
 			}
 
-		case "+", "-", "*", "/":
+		case internal.SumSimbol, internal.MultSimbol, internal.DivSimbol, internal.SubSimbol:
 			for len(stack) > 0 {
 				top := stack[len(stack)-1]
 
@@ -130,7 +133,7 @@ func (m *Mather) calculatePostfix() (int, error) {
 
 func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 	switch op {
-	case "+":
+	case internal.SumSimbol:
 		if a+b <= 0 {
 			return 0, &CalculationError{"Under zero"}
 		}
@@ -139,13 +142,13 @@ func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 		}
 		return a + b, nil
 
-	case "-":
+	case internal.SubSimbol:
 		if a-b <= 0 {
 			return 0, &CalculationError{"Under zero"}
 		}
 		return a - b, nil
 
-	case "*":
+	case internal.MultSimbol:
 		if a*b <= 0 {
 			return 0, &CalculationError{"Under zero"}
 		}
@@ -154,7 +157,7 @@ func (m *Mather) calculateOperation(a, b int, op string) (int, error) {
 		}
 		return a * b, nil
 
-	case "/":
+	case internal.DivSimbol:
 		if b == 0 || a%b != 0 {
 			return 0, &CalculationError{"Division by zero"}
 		}
