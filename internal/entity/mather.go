@@ -50,7 +50,7 @@ func (m *Mather) infixExprToPostfix() {
 				output = append(output, top)
 			}
 
-		case "+", "-", "●", "/":
+		case "+", "-", "●", "÷":
 			for len(stack) > 0 {
 				top := stack[len(stack)-1]
 
