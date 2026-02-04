@@ -167,10 +167,18 @@ func (h *TeacherHandlers) ClassStatistics(w http.ResponseWriter, r *http.Request
 		log.Println(err)
 		return
 	}
+
+	dailyResults, err := h.teacherRepo.GetDailyClassResults(class.ID, 0)
+	if err != nil {
+		log.Printf("Ошибка получения статистики недели:", err)
+		return
+	}
+
 	data := map[string]interface{}{
-		"ClassID":  class.ID,
-		"Stats":    stats,
-		"Students": students,
+		"ClassID":      class.ID,
+		"Stats":        stats,
+		"Students":     students,
+		"DailyResults": dailyResults,
 	}
 
 	err = h.tmpl.ExecuteTemplate(w, "class_statisctics.html", data)
