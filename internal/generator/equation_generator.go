@@ -1,7 +1,9 @@
 package generator
 
 import (
+	"edugame/internal"
 	"edugame/internal/entity"
+	"log"
 	"math/rand"
 	"strconv"
 	"time"
@@ -59,12 +61,19 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 
 			if i < cap(ops) {
 				ops[i] = string(runes[g.randSource.Intn(len(runes))])
+				if ops[i] == "/" {
+					ops[i] = internal.DivSimbol
+				} else if ops[i] == "*" {
+					ops[i] = internal.MultSimbol
+				}
+				
 				expr[i*2+1] = ops[i]
 				eqStr += ops[i]
 			}
 		}
 		eqStr += "= ?"
 
+		log.Printf("dsa")
 		m := entity.NewMather(expr, t.Result_max)
 		correctAnswer, err = m.Calculate()
 		if err == nil {
