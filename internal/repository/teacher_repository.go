@@ -45,38 +45,39 @@ func (r *TeacherRepository) GetTeacherClass(teacherID int) (struct {
 
 	return class, nil
 }
+
 // repository/teacher_repository.go
 
 // GetAllClasses получает все классы из базы данных
 func (r *TeacherRepository) GetAllClasses() ([]*entity.Class, error) {
-    query := `
+	query := `
         SELECT id, name, grade, teacher_id 
         FROM classes 
         ORDER BY grade, name
     `
-    
-    rows, err := r.db.Query(query)
-    if err != nil {
-        return nil, fmt.Errorf("ошибка получения классов: %w", err)
-    }
-    defer rows.Close()
-    
-    var classes []*entity.Class
-    for rows.Next() {
-        var class entity.Class
-        err := rows.Scan(
-            &class.ID,
-            &class.Name,
-            &class.Grade,
-            &class.TeacherID,
-        )
-        if err != nil {
-            continue // пропускаем ошибки чтения
-        }
-        classes = append(classes, &class)
-    }
-    
-    return classes, nil
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения классов: %w", err)
+	}
+	defer rows.Close()
+
+	var classes []*entity.Class
+	for rows.Next() {
+		var class entity.Class
+		err := rows.Scan(
+			&class.ID,
+			&class.Name,
+			&class.Grade,
+			&class.TeacherID,
+		)
+		if err != nil {
+			continue // пропускаем ошибки чтения
+		}
+		classes = append(classes, &class)
+	}
+
+	return classes, nil
 }
 
 // Получить учеников класса
@@ -1187,4 +1188,197 @@ func (r *TeacherRepository) GetClassName(classID int) (string, error) {
 		return "", err
 	}
 	return name, nil
+}
+
+// GetDailyClassResults получает ежедневные результаты класса по 10 примерам за сессию
+func (r *TeacherRepository) GetDailyClassResults(classID int, weeksOffset int) (map[string]interface{}, error) {
+	// Определяем даты для недели
+	now := time.Now()
+	startDate := now.AddDate(0, 0, int(-now.Weekday())+1) // Понедельник
+	endDate := startDate.AddDate(0, 0, 6)                 // Воскресенье
+
+	if weeksOffset != 0 {
+		startDate = startDate.AddDate(0, 0, weeksOffset*7)
+		endDate = endDate.AddDate(0, 0, weeksOffset*7)
+	}
+
+	// Получаем учеников класса
+	students, err := r.GetClassStudents(classID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Создаем структуру для результатов
+	result := map[string]interface{}{
+		"WeekStart": startDate.Format("02.01"),
+		"WeekEnd":   endDate.Format("02.01"),
+		"Dates":     []map[string]string{},
+		"Students":  []map[string]interface{}{},
+		"Stats":     map[string]interface{}{},
+	}
+
+	// Генерируем даты для заголовков таблицы
+	for i := 0; i < 7; i++ {
+		currentDate := startDate.AddDate(0, 0, i)
+		result["Dates"] = append(result["Dates"].([]map[string]string), map[string]string{
+			"Date":    currentDate.Format("02.01"),
+			"Weekday": []string{"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}[i],
+		})
+	}
+
+	// Получаем результаты для каждого ученика
+	var totalSessions, perfectSessions, totalScore, totalAttempts int
+
+	for _, student := range students {
+		studentResults, err := r.GetStudentDailyResults(student.ID, startDate, endDate)
+		if err != nil {
+			continue
+		}
+
+		var studentTotalScore, studentSessions int
+		var dailyResults []map[string]interface{}
+
+		// Заполняем результаты по дням
+		for i := 0; i < 7; i++ {
+			currentDate := startDate.AddDate(0, 0, i)
+			dateStr := currentDate.Format("2006-01-02")
+
+			if sessions, exists := studentResults[dateStr]; exists && len(sessions) > 0 {
+				var sessionResults []map[string]interface{}
+				var dayScore int
+
+				for _, session := range sessions {
+					correct := session["correct"].(int)
+					total := session["total"].(int)
+
+					cssClass := "poor-result"
+					if correct == 10 {
+						cssClass = "perfect-result"
+						perfectSessions++
+					} else if correct >= 8 {
+						cssClass = "good-result"
+					} else if correct >= 6 {
+						cssClass = "average-result"
+					}
+
+					sessionResults = append(sessionResults, map[string]interface{}{
+						"Correct":  correct,
+						"Total":    total,
+						"CSSClass": cssClass,
+					})
+
+					dayScore += correct
+					studentSessions++
+					totalSessions++
+				}
+
+				dailyResults = append(dailyResults, map[string]interface{}{
+					"Results":  sessionResults,
+					"DayScore": dayScore,
+				})
+
+				studentTotalScore += dayScore
+			} else {
+				dailyResults = append(dailyResults, map[string]interface{}{
+					"Results": []map[string]interface{}{},
+				})
+			}
+		}
+
+		// Рассчитываем средний балл ученика
+		avgScore := 0.0
+		if studentSessions > 0 {
+			avgScore = float64(studentTotalScore) / float64(studentSessions)
+		}
+
+		totalScore += studentTotalScore
+		totalAttempts += studentSessions * 10 // Каждая сессия = 10 примеров
+
+		// Добавляем ученика в результаты
+		result["Students"] = append(result["Students"].([]map[string]interface{}), map[string]interface{}{
+			"ID":            student.ID,
+			"FullName":      student.FullName,
+			"DailyResults":  dailyResults,
+			"AverageScore":  avgScore,
+			"TotalAttempts": studentSessions,
+			"IsActive":      studentSessions > 0,
+		})
+	}
+
+	// Рассчитываем статистику
+	avgDailyAttempts := 0
+	avgScore := 0.0
+
+	if len(students) > 0 {
+		avgDailyAttempts = totalSessions / len(students)
+	}
+
+	if totalSessions > 0 {
+		avgScore = float64(totalScore) / float64(totalSessions)
+	}
+
+	result["Stats"] = map[string]interface{}{
+		"AvgDailyAttempts": avgDailyAttempts,
+		"AvgScore":         avgScore,
+		"TotalSessions":    totalSessions,
+		"PerfectSessions":  perfectSessions,
+		"TotalStudents":    len(students),
+		"TotalCorrect":     totalScore,
+		"TotalAttempts":    totalAttempts,
+		"OverallAccuracy":  float64(totalScore) / float64(totalAttempts) * 100,
+	}
+
+	return result, nil
+}
+
+// GetStudentDailyResults получает ежедневные результаты ученика по 10 примерам
+func (r *TeacherRepository) GetStudentDailyResults(studentID int, startDate, endDate time.Time) (map[string][]map[string]interface{}, error) {
+	// Запрос для получения результатов по 10 примеров за сессию
+	query := `
+        WITH session_groups AS (
+            SELECT 
+                DATE(a.created_at) as session_date,
+                EXTRACT(HOUR FROM a.created_at) as session_hour,
+                COUNT(*) as examples_in_session,
+                SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END) as correct_in_session
+            FROM attempts a
+            WHERE a.user_id = $1
+              AND DATE(a.created_at) BETWEEN $2 AND $3
+            GROUP BY DATE(a.created_at), EXTRACT(HOUR FROM a.created_at)
+            HAVING COUNT(*) = 10 -- Только полные сессии по 10 примеров
+        )
+        SELECT 
+            session_date,
+            session_hour,
+            examples_in_session,
+            correct_in_session
+        FROM session_groups
+        ORDER BY session_date, session_hour
+    `
+
+	rows, err := r.db.Query(query, studentID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make(map[string][]map[string]interface{})
+
+	for rows.Next() {
+		var sessionDate string
+		var sessionHour int
+		var examples, correct int
+
+		if err := rows.Scan(&sessionDate, &sessionHour, &examples, &correct); err != nil {
+			continue
+		}
+
+		results[sessionDate] = append(results[sessionDate], map[string]interface{}{
+			"hour":    sessionHour,
+			"total":   examples,
+			"correct": correct,
+		})
+	}
+
+	return results, nil
 }
