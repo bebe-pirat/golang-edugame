@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"edugame/internal/entity"
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
@@ -1190,12 +1191,82 @@ func (r *TeacherRepository) GetClassName(classID int) (string, error) {
 	return name, nil
 }
 
+type SessionResult struct {
+	Hour    int `json:"hour"`
+	Total   int `json:"total"`
+	Correct int `json:"correct"`
+}
+
+type StudentResult struct {
+	Date    string
+	Results []SessionResult
+}
+
+type DailyResult struct {
+	Results  []SessionDisplay `json:"results"`
+	DayScore int              `json:"dayScore"`
+}
+
+type SessionDisplay struct {
+	Correct  int    `json:"correct"`
+	Total    int    `json:"total"`
+	CSSClass string `json:"cssClass"`
+}
+
+type DateInfo struct {
+	Date    string `json:"date"`
+	Weekday string `json:"weekday"`
+}
+
+type StudentInfo struct {
+	ID            int           `json:"id"`
+	FullName      string        `json:"fullName"`
+	DailyResults  []DailyResult `json:"dailyResults"`
+	AverageScore  float64       `json:"averageScore"`
+	TotalAttempts int           `json:"totalAttempts"`
+	IsActive      bool          `json:"isActive"`
+}
+
+type ClassStats struct {
+	AvgDailyAttempts int     `json:"avgDailyAttempts"`
+	AvgScore         float64 `json:"avgScore"`
+	TotalSessions    int     `json:"totalSessions"`
+	PerfectSessions  int     `json:"perfectSessions"`
+	TotalStudents    int     `json:"totalStudents"`
+	TotalCorrect     int     `json:"totalCorrect"`
+	TotalAttempts    int     `json:"totalAttempts"`
+	OverallAccuracy  float64 `json:"overallAccuracy"`
+}
+
+type DailyClassResults struct {
+	WeekStart string        `json:"weekStart"`
+	WeekEnd   string        `json:"weekEnd"`
+	Dates     []DateInfo    `json:"dates"`
+	Students  []StudentInfo `json:"students"`
+	Stats     ClassStats    `json:"stats"`
+}
+
+// Функция для получения понедельника недели
+func getMondayOfWeek(t time.Time) time.Time {
+	// Go: Sunday = 0, Monday = 1, ..., Saturday = 6
+	weekday := int(t.Weekday())
+	// Преобразуем к нашей нумерации: Monday = 0, Sunday = 6
+	if weekday == 0 { // Sunday
+		weekday = 7
+	}
+	daysSinceMonday := weekday - 1
+	return t.AddDate(0, 0, -daysSinceMonday)
+}
+
 // GetDailyClassResults получает ежедневные результаты класса по 10 примерам за сессию
-func (r *TeacherRepository) GetDailyClassResults(classID int, weeksOffset int) (map[string]interface{}, error) {
-	// Определяем даты для недели
+func (r *TeacherRepository) GetDailyClassResults(classID int, weeksOffset int) (*DailyClassResults, error) {
+	// Определяем даты для недели, начиная с понедельника
 	now := time.Now()
-	startDate := now.AddDate(0, 0, int(-now.Weekday())+1) // Понедельник
-	endDate := startDate.AddDate(0, 0, 6)                 // Воскресенье
+
+	// Находим понедельник текущей недели
+	monday := getMondayOfWeek(now)
+	startDate := time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, time.UTC)
+	endDate := startDate.AddDate(0, 0, 6) // Воскресенье
 
 	if weeksOffset != 0 {
 		startDate = startDate.AddDate(0, 0, weeksOffset*7)
@@ -1208,21 +1279,22 @@ func (r *TeacherRepository) GetDailyClassResults(classID int, weeksOffset int) (
 		return nil, err
 	}
 
-	// Создаем структуру для результатов
-	result := map[string]interface{}{
-		"WeekStart": startDate.Format("02.01"),
-		"WeekEnd":   endDate.Format("02.01"),
-		"Dates":     []map[string]string{},
-		"Students":  []map[string]interface{}{},
-		"Stats":     map[string]interface{}{},
+	// Инициализируем структуру результата
+	result := &DailyClassResults{
+		WeekStart: startDate.Format("02.01"),
+		WeekEnd:   endDate.Format("02.01"),
+		Dates:     make([]DateInfo, 0, 7),
+		Students:  make([]StudentInfo, 0, len(students)),
+		Stats:     ClassStats{},
 	}
 
 	// Генерируем даты для заголовков таблицы
+	weekdays := []string{"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
 	for i := 0; i < 7; i++ {
 		currentDate := startDate.AddDate(0, 0, i)
-		result["Dates"] = append(result["Dates"].([]map[string]string), map[string]string{
-			"Date":    currentDate.Format("02.01"),
-			"Weekday": []string{"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}[i],
+		result.Dates = append(result.Dates, DateInfo{
+			Date:    currentDate.Format("02.01"),
+			Weekday: weekdays[i],
 		})
 	}
 
@@ -1236,53 +1308,45 @@ func (r *TeacherRepository) GetDailyClassResults(classID int, weeksOffset int) (
 		}
 
 		var studentTotalScore, studentSessions int
-		var dailyResults []map[string]interface{}
+		dailyResults := make([]DailyResult, 0, 7)
 
 		// Заполняем результаты по дням
 		for i := 0; i < 7; i++ {
 			currentDate := startDate.AddDate(0, 0, i)
 			dateStr := currentDate.Format("2006-01-02")
 
+			dailyResult := DailyResult{
+				Results: make([]SessionDisplay, 0),
+			}
+
 			if sessions, exists := studentResults[dateStr]; exists && len(sessions) > 0 {
-				var sessionResults []map[string]interface{}
+				var sessionDisplays []SessionDisplay
 				var dayScore int
 
 				for _, session := range sessions {
-					correct := session["correct"].(int)
-					total := session["total"].(int)
+					cssClass := getCSSClassForResult(session.Correct)
 
-					cssClass := "poor-result"
-					if correct == 10 {
-						cssClass = "perfect-result"
+					if session.Correct == 10 {
 						perfectSessions++
-					} else if correct >= 8 {
-						cssClass = "good-result"
-					} else if correct >= 6 {
-						cssClass = "average-result"
 					}
 
-					sessionResults = append(sessionResults, map[string]interface{}{
-						"Correct":  correct,
-						"Total":    total,
-						"CSSClass": cssClass,
+					sessionDisplays = append(sessionDisplays, SessionDisplay{
+						Correct:  session.Correct,
+						Total:    session.Total,
+						CSSClass: cssClass,
 					})
 
-					dayScore += correct
+					dayScore += session.Correct
 					studentSessions++
 					totalSessions++
 				}
 
-				dailyResults = append(dailyResults, map[string]interface{}{
-					"Results":  sessionResults,
-					"DayScore": dayScore,
-				})
-
+				dailyResult.Results = sessionDisplays
+				dailyResult.DayScore = dayScore
 				studentTotalScore += dayScore
-			} else {
-				dailyResults = append(dailyResults, map[string]interface{}{
-					"Results": []map[string]interface{}{},
-				})
 			}
+
+			dailyResults = append(dailyResults, dailyResult)
 		}
 
 		// Рассчитываем средний балл ученика
@@ -1292,16 +1356,16 @@ func (r *TeacherRepository) GetDailyClassResults(classID int, weeksOffset int) (
 		}
 
 		totalScore += studentTotalScore
-		totalAttempts += studentSessions * 10 // Каждая сессия = 10 примеров
+		totalAttempts += studentSessions * 10
 
 		// Добавляем ученика в результаты
-		result["Students"] = append(result["Students"].([]map[string]interface{}), map[string]interface{}{
-			"ID":            student.ID,
-			"FullName":      student.FullName,
-			"DailyResults":  dailyResults,
-			"AverageScore":  avgScore,
-			"TotalAttempts": studentSessions,
-			"IsActive":      studentSessions > 0,
+		result.Students = append(result.Students, StudentInfo{
+			ID:            student.ID,
+			FullName:      student.FullName,
+			DailyResults:  dailyResults,
+			AverageScore:  avgScore,
+			TotalAttempts: studentSessions,
+			IsActive:      studentSessions > 0,
 		})
 	}
 
@@ -1317,22 +1381,40 @@ func (r *TeacherRepository) GetDailyClassResults(classID int, weeksOffset int) (
 		avgScore = float64(totalScore) / float64(totalSessions)
 	}
 
-	result["Stats"] = map[string]interface{}{
-		"AvgDailyAttempts": avgDailyAttempts,
-		"AvgScore":         avgScore,
-		"TotalSessions":    totalSessions,
-		"PerfectSessions":  perfectSessions,
-		"TotalStudents":    len(students),
-		"TotalCorrect":     totalScore,
-		"TotalAttempts":    totalAttempts,
-		"OverallAccuracy":  float64(totalScore) / float64(totalAttempts) * 100,
+	overallAccuracy := 0.0
+	if totalAttempts > 0 {
+		overallAccuracy = float64(totalScore) / float64(totalAttempts) * 100
+	}
+
+	result.Stats = ClassStats{
+		AvgDailyAttempts: avgDailyAttempts,
+		AvgScore:         avgScore,
+		TotalSessions:    totalSessions,
+		PerfectSessions:  perfectSessions,
+		TotalStudents:    len(students),
+		TotalCorrect:     totalScore,
+		TotalAttempts:    totalAttempts,
+		OverallAccuracy:  overallAccuracy,
 	}
 
 	return result, nil
 }
 
-// GetStudentDailyResults получает ежедневные результаты ученика по 10 примерам
-func (r *TeacherRepository) GetStudentDailyResults(studentID int, startDate, endDate time.Time) (map[string][]map[string]interface{}, error) {
+// Вспомогательная функция для определения CSS класса
+func getCSSClassForResult(correct int) string {
+	switch {
+	case correct == 10:
+		return "perfect-result"
+	case correct >= 8:
+		return "good-result"
+	case correct >= 6:
+		return "average-result"
+	default:
+		return "poor-result"
+	}
+}
+
+func (r *TeacherRepository) GetStudentDailyResults(studentID int, startDate, endDate time.Time) (map[string][]SessionResult, error) {
 	// Запрос для получения результатов по 10 примеров за сессию
 	query := `
         WITH session_groups AS (
@@ -1343,9 +1425,9 @@ func (r *TeacherRepository) GetStudentDailyResults(studentID int, startDate, end
                 SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END) as correct_in_session
             FROM attempts a
             WHERE a.user_id = $1
-              AND DATE(a.created_at) BETWEEN $2 AND $3
+              AND DATE(a.created_at) BETWEEN $2::date AND $3::date
             GROUP BY DATE(a.created_at), EXTRACT(HOUR FROM a.created_at)
-            HAVING COUNT(*) = 10 -- Только полные сессии по 10 примеров
+            HAVING COUNT(*) = 10
         )
         SELECT 
             session_date,
@@ -1356,29 +1438,46 @@ func (r *TeacherRepository) GetStudentDailyResults(studentID int, startDate, end
         ORDER BY session_date, session_hour
     `
 
-	rows, err := r.db.Query(query, studentID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+	// Правильное форматирование дат
+	startDateStr := startDate.Format("2006-01-02")
+	endDateStr := endDate.Format("2006-01-02")
+
+	rows, err := r.db.Query(query, studentID, startDateStr, endDateStr)
 	if err != nil {
+		log.Printf("Query error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
 
-	results := make(map[string][]map[string]interface{})
+	// Типизированная мапа
+	results := make(map[string][]SessionResult)
 
 	for rows.Next() {
-		var sessionDate string
+		var sessionDate time.Time
 		var sessionHour int
 		var examples, correct int
 
 		if err := rows.Scan(&sessionDate, &sessionHour, &examples, &correct); err != nil {
+			log.Printf("Scan error: %v", err)
 			continue
 		}
 
-		results[sessionDate] = append(results[sessionDate], map[string]interface{}{
-			"hour":    sessionHour,
-			"total":   examples,
-			"correct": correct,
+		// Добавляем типизированную структуру
+		results[sessionDate.Format("2006-01-02")] = append(results[sessionDate.Format("2006-01-02")], SessionResult{
+			Hour:    sessionHour,
+			Total:   examples,
+			Correct: correct,
 		})
 	}
 
+	// Проверяем ошибки итерации
+	if err := rows.Err(); err != nil {
+		log.Printf("Rows iteration error: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Query params: studentID=%d, startDate=%s, endDate=%s",
+		studentID, startDateStr, endDateStr)
+	log.Printf("Results: %v", results)
 	return results, nil
 }
