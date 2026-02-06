@@ -11,12 +11,13 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 
 	"github.com/gorilla/sessions"
 )
 
-var store = sessions.NewCookieStore([]byte("a-very-secret-key"))
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET_KEY")))
 
 type EquationHandler struct {
 	tmpl             *template.Template

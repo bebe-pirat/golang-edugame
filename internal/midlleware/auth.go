@@ -2,12 +2,13 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gorilla/sessions"
 )
 
-var store = sessions.NewCookieStore([]byte("a-very-secret-key"))
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET_KEY")))
 
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
