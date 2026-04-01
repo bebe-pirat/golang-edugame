@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -12,13 +11,7 @@ import (
 
 var DB *sql.DB
 
-func InitDB() error {
-	connStr := os.Getenv("DATABASE_URL")
-
-	if connStr == "" {
-		connStr = "postgresql://localhost/edugame?sslmode=disable"
-	}
-
+func InitDB(connStr string) error {
 	var err error
 	DB, err = sql.Open("postgres", connStr)
 	if err != nil {

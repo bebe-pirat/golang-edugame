@@ -2,6 +2,8 @@ package handler
 
 import (
 	"edugame/internal/repository"
+	"edugame/internal/entity"
+	"edugame/internal/generator"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -383,22 +385,15 @@ func (h *AdminHandler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	fullName := r.FormValue("fullname")
-	email := r.FormValue("email")
 	roleName := r.FormValue("role_id")
 	
-	var schoolID *int
-	if schoolIDStr := r.FormValue("school_id"); schoolIDStr != "" {
-		id, _ := strconv.Atoi(schoolIDStr)
-		schoolID = &id
-	}
-
 	var classID *int
 	if classIDStr := r.FormValue("class_id"); classIDStr != "" {
 		id, _ := strconv.Atoi(classIDStr)
 		classID = &id
 	}
 
-	_, err := h.userRepo.Register(username, password, roleName, fullName, email, schoolID, classID)
+	_, err := h.userRepo.Register(username, password, roleName, fullName, classID)
 	if err != nil {
 		http.Error(w, "Ошибка создания пользователя", http.StatusInternalServerError)
 		return
@@ -549,7 +544,6 @@ func (h *AdminHandler) EquationTypeCreate(w http.ResponseWriter, r *http.Request
 		},
 		No_remainder: noRemainder,
 		Result_max:   resultMax,
-		Is_available: true,
 	}
 
 	_, err := h.typeRepo.Create(et)
@@ -598,8 +592,6 @@ func (h *AdminHandler) EquationTypeUpdate(w http.ResponseWriter, r *http.Request
 		resultMax = -1
 	}
 
-	isAvailable := r.FormValue("is_available") == "on"
-
 	et := generator.EquationType{
 		ID:          id,
 		Class:       class,
@@ -615,7 +607,6 @@ func (h *AdminHandler) EquationTypeUpdate(w http.ResponseWriter, r *http.Request
 		},
 		No_remainder: noRemainder,
 		Result_max:   resultMax,
-		Is_available: isAvailable,
 	}
 
 	_, err = h.typeRepo.Update(et)

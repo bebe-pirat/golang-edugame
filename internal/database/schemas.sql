@@ -55,8 +55,6 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(100) NOT NULL,
     role_id INTEGER NOT NULL REFERENCES roles(id) DEFAULT 1,
     fullname VARCHAR(256) NOT NULL,
-    email VARCHAR(100),
-    school_id INTEGER REFERENCES schools(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

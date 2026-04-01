@@ -7,6 +7,7 @@ import (
 	"edugame/internal/repository"
 	"edugame/internal/session"
 	"log"
+	"log/slog"
 	"time"
 
 	"encoding/gob"
@@ -23,12 +24,20 @@ func init() {
 }
 
 func main() {
-	// Загружаем .env файл
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+	err := godotenv.Load()
+	if err != nil {
+		logger.Info("unable to load .env")
 	}
 
-	err := database.InitDB()
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		slog.Error("failed to load connection string")
+		return
+	}
+
+	err = database.InitDB(connStr)
 	if err != nil {
 		fmt.Printf("Ошибка инициализации БД: %v\n", err)
 		return

@@ -21,7 +21,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 // Регистрация пользователя
-func (r *UserRepository) Register(username, password, roleName, fullName, email string, schoolID *int, classID *int) (*entity.User, error) {
+func (r *UserRepository) Register(username, password, roleName, fullName string, classID *int) (*entity.User, error) {
 	// Хэшируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -36,18 +36,14 @@ func (r *UserRepository) Register(username, password, roleName, fullName, email 
 	}
 
 	var userID int
-	var userSchoolID sql.NullInt64
-	if schoolID != nil {
-		userSchoolID = sql.NullInt64{Int64: int64(*schoolID), Valid: true}
-	}
 
 	query := `
-        INSERT INTO users (username, password_hash, role_id, fullname, email, school_id)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users (username, password_hash, role_id, fullname)
+        VALUES ($1, $2, $3, $4)
         RETURNING id
     `
 
-	err = r.db.QueryRow(query, username, string(hashedPassword), roleID, fullName, email, userSchoolID).Scan(&userID)
+	err = r.db.QueryRow(query, username, string(hashedPassword), roleID, fullName).Scan(&userID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,14 +69,14 @@ func (r *UserRepository) Login(username, password string) (*entity.User, error) 
 	var roleID int
 
 	query := `
-        SELECT id, username, password_hash, role_id, fullname, email, school_id, created_at
+        SELECT id, username, password_hash, role_id, fullname, created_at
         FROM users 
         WHERE username = $1
     `
 
 	err := r.db.QueryRow(query, username).Scan(
 		&user.ID, &user.Username, &passwordHash,
-		&roleID, &user.FullName, &user.Email, &user.SchoolID, &user.CreatedAt,
+		&roleID, &user.FullName, &user.CreatedAt,
 	)
 
 	if err != nil {
@@ -139,7 +135,7 @@ func (r *UserRepository) GetBySessionToken(token string) (*entity.User, error) {
 	var roleID int
 
 	query := `
-        SELECT u.id, u.username, u.role_id, u.fullname, u.email, u.school_id, u.created_at
+        SELECT u.id, u.username, u.role_id, u.fullname, u.created_at
         FROM users u
         JOIN user_sessions s ON u.id = s.user_id
         WHERE s.session_token = $1 AND s.expires_at > NOW()
@@ -147,7 +143,7 @@ func (r *UserRepository) GetBySessionToken(token string) (*entity.User, error) {
 
 	err := r.db.QueryRow(query, token).Scan(
 		&user.ID, &user.Username, &roleID,
-		&user.FullName, &user.Email, &user.SchoolID, &user.CreatedAt,
+		&user.FullName, &user.CreatedAt,
 	)
 
 	if err != nil {
@@ -175,16 +171,15 @@ func (r *UserRepository) Logout(token string) error {
 func (r *UserRepository) GetByID(id int) (*entity.User, error) {
 	var user entity.User
 	var roleID int
-	var schoolID sql.NullInt64
 
 	query := `
-        SELECT id, username, role_id, fullname, email, school_id, created_at
+        SELECT id, username, role_id, fullname, created_at
         FROM users WHERE id = $1
     `
 
 	err := r.db.QueryRow(query, id).Scan(
 		&user.ID, &user.Username, &roleID,
-		&user.FullName, &user.Email, &schoolID, &user.CreatedAt,
+		&user.FullName, &user.CreatedAt,
 	)
 
 	if err != nil {
@@ -192,10 +187,6 @@ func (r *UserRepository) GetByID(id int) (*entity.User, error) {
 	}
 
 	user.RoleID = roleID
-	if schoolID.Valid {
-		sid := int(schoolID.Int64)
-		user.SchoolID = &sid
-	}
 
 	// Получаем информацию о роли
 	role, err := r.getRoleByID(roleID)
@@ -209,7 +200,7 @@ func (r *UserRepository) GetByID(id int) (*entity.User, error) {
 // GetAllUsers получает всех пользователей
 func (r *UserRepository) GetAllUsers() ([]entity.User, error) {
 	query := `
-        SELECT id, username, role_id, fullname, email, school_id, created_at
+        SELECT id, username, role_id, fullname, created_at
         FROM users
         ORDER BY created_at DESC
     `
@@ -224,21 +215,16 @@ func (r *UserRepository) GetAllUsers() ([]entity.User, error) {
 	for rows.Next() {
 		var user entity.User
 		var roleID int
-		var schoolID sql.NullInt64
 
 		err := rows.Scan(
 			&user.ID, &user.Username, &roleID,
-			&user.FullName, &user.Email, &schoolID, &user.CreatedAt,
+			&user.FullName, &user.CreatedAt,
 		)
 		if err != nil {
 			continue
 		}
 
 		user.RoleID = roleID
-		if schoolID.Valid {
-			sid := int(schoolID.Int64)
-			user.SchoolID = &sid
-		}
 
 		// Получаем информацию о роли
 		role, err := r.getRoleByID(roleID)
@@ -272,21 +258,16 @@ func (r *UserRepository) GetUserByRoleType(roleName string) ([]entity.User, erro
 	for rows.Next() {
 		var user entity.User
 		var roleID int
-		var schoolID sql.NullInt64
 
 		err := rows.Scan(
 			&user.ID, &user.Username, &roleID,
-			&user.FullName, &user.Email, &schoolID, &user.CreatedAt,
+			&user.FullName, &user.CreatedAt,
 		)
 		if err != nil {
 			continue
 		}
 
 		user.RoleID = roleID
-		if schoolID.Valid {
-			sid := int(schoolID.Int64)
-			user.SchoolID = &sid
-		}
 
 		// Получаем информацию о роли
 		role, err := r.getRoleByID(roleID)
@@ -315,19 +296,13 @@ func (r *UserRepository) UpdateUser(id int, username, fullName, email string, ro
     `
 
 	var newUser entity.User
-	var retSchoolID sql.NullInt64
 	err := r.db.QueryRow(query, username, fullName, email, roleID, userSchoolID, id).Scan(
 		&newUser.ID, &newUser.Username, &newUser.RoleID,
-		&newUser.FullName, &newUser.Email, &retSchoolID, &newUser.CreatedAt,
+		&newUser.FullName, &newUser.CreatedAt,
 	)
 
 	if err != nil {
 		return nil, err
-	}
-
-	if retSchoolID.Valid {
-		sid := int(retSchoolID.Int64)
-		newUser.SchoolID = &sid
 	}
 
 	// Получаем информацию о роли
@@ -367,21 +342,16 @@ func (r *UserRepository) GetStudentsByClass(classID int) ([]entity.User, error) 
 	for rows.Next() {
 		var user entity.User
 		var roleID int
-		var schoolID sql.NullInt64
-
+	
 		err := rows.Scan(
 			&user.ID, &user.Username, &roleID,
-			&user.FullName, &user.Email, &schoolID, &user.CreatedAt,
+			&user.FullName, &user.CreatedAt,
 		)
 		if err != nil {
 			continue
 		}
 
 		user.RoleID = roleID
-		if schoolID.Valid {
-			sid := int(schoolID.Int64)
-			user.SchoolID = &sid
-		}
 
 		// Получаем информацию о роли
 		role, err := r.getRoleByID(roleID)
