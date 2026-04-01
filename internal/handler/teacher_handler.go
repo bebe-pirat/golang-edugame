@@ -7,14 +7,17 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/gorilla/sessions"
 )
 
 type TeacherHandlers struct {
 	teacherRepo *repository.TeacherRepository
 	tmpl        *template.Template
+	store       *sessions.CookieStore
 }
 
-func NewTeacherHandlers(teacherRepo *repository.TeacherRepository) *TeacherHandlers {
+func NewTeacherHandlers(teacherRepo *repository.TeacherRepository, store *sessions.CookieStore) *TeacherHandlers {
 	tmpl := template.Must(template.ParseFiles(
 		"internal/templates/class_statisctics.html",
 		"internal/templates/student_statisctics.html",
@@ -27,12 +30,13 @@ func NewTeacherHandlers(teacherRepo *repository.TeacherRepository) *TeacherHandl
 	return &TeacherHandlers{
 		teacherRepo: teacherRepo,
 		tmpl:        tmpl,
+		store:       store,
 	}
 }
 
 func (h *TeacherHandlers) TeacherOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session, err := store.Get(r, "app-session")
+		session, err := h.store.Get(r, "app-session")
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -140,7 +144,7 @@ func (h *TeacherHandlers) DirectorClassStats(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *TeacherHandlers) ClassStatistics(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "app-session")
+	session, _ := h.store.Get(r, "app-session")
 	teacherID, ok := session.Values["user_id"].(int)
 	if !ok {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)

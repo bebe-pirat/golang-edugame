@@ -1,31 +1,55 @@
 ```
-# Compiled and build artifacts
+# Go-specific ignores
 *.o
-*.obj
-*.out
-
-# Dependencies
-vendor/
-
-# Logs and temp files
-*.log
-*.tmp
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Go-specific
-*.exe
-*.dll
-*.so
 *.a
+*.so
 *.dylib
+*.exe
+*.out
 *.test
 *.prof
+cover.out
+coverage.txt
+
+# Dependencies and build artifacts
+vendor/
+bin/
+pkg/
+
+# Environment specific
+.env
+.env.local
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+htmlcov/
+.coverage
+
+# Build/cache directories
+build/
+dist/
+target/
+.mypy_cache/
+.pytest_cache/
+.gradle/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 ```

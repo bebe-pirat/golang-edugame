@@ -13,29 +13,25 @@ func NewTypeRepository(db *sql.DB) *TypeRepository {
 	return &TypeRepository{db: db}
 }
 
-// GetAll получает все типы уравнений
+// GetAll получает все типы уравнений с диапазонами операндов
 func (r *TypeRepository) GetAll() ([]generator.EquationType, error) {
 	query := `
         SELECT id, class, name, description, operation, num_operands, 
-               operand1_min, operand1_max, operand2_min, operand2_max, 
-               COALESCE(operand3_min, -1), COALESCE(operand3_max, -1), 
-               COALESCE(operand4_min, -1), COALESCE(operand4_max, -1), 
                no_remainder, COALESCE(result_max, -1), is_available
         FROM equation_types
         ORDER BY class, name
     `
 
-	types := make([]generator.EquationType, 0)
-
 	rows, err := r.db.Query(query)
 	if err != nil {
-		return types, err
+		return nil, err
 	}
 	defer rows.Close()
 
+	types := make([]generator.EquationType, 0)
+
 	for rows.Next() {
 		t := generator.EquationType{}
-		var isAvailable bool
 		err := rows.Scan(
 			&t.ID,
 			&t.Class,
@@ -43,24 +39,21 @@ func (r *TypeRepository) GetAll() ([]generator.EquationType, error) {
 			&t.Description,
 			&t.Operation,
 			&t.NumOperands,
-
-			&t.Operands[0][0],
-			&t.Operands[0][1],
-			&t.Operands[1][0],
-			&t.Operands[1][1],
-			&t.Operands[2][0],
-			&t.Operands[2][1],
-			&t.Operands[3][0],
-			&t.Operands[3][1],
-
-			&t.No_remainder,
-			&t.Result_max,
-			&isAvailable,
+			&t.NoRemainder,
+			&t.ResultMax,
+			&t.IsAvailable,
 		)
 
 		if err != nil {
 			return types, err
 		}
+
+		// Загружаем диапазоны операндов для этого типа уравнения
+		operands, err := r.getOperandRanges(t.ID)
+		if err != nil {
+			return types, err
+		}
+		t.Operands = operands
 
 		types = append(types, t)
 	}
@@ -68,22 +61,50 @@ func (r *TypeRepository) GetAll() ([]generator.EquationType, error) {
 	return types, nil
 }
 
+// getOperandRanges получает диапазоны операндов для типа уравнения
+func (r *TypeRepository) getOperandRanges(equationTypeID int) ([]generator.OperandRange, error) {
+	query := `
+		SELECT operand_order, min_value, max_value
+		FROM operand_ranges
+		WHERE equation_type_id = $1
+		ORDER BY operand_order
+	`
+
+	rows, err := r.db.Query(query, equationTypeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	operands := make([]generator.OperandRange, 0)
+	for rows.Next() {
+		var op generator.OperandRange
+		err := rows.Scan(&op.Order, &op.MinValue, &op.MaxValue)
+		if err != nil {
+			return nil, err
+		}
+		operands = append(operands, op)
+	}
+
+	return operands, nil
+}
+
 // получить полный список типов уравнений для определенного класса
 func (r *TypeRepository) GetListTypes(class int) ([]generator.EquationType, error) {
 	query := `
-        SELECT id, class, name, description, operation, num_operands, operand1_min, operand1_max, operand2_min, operand2_max, COALESCE(operand3_min, -1), COALESCE(operand3_max, -1), COALESCE(operand4_min, -1), COALESCE(operand4_max, -1), no_remainder, COALESCE(result_max, -1)
+        SELECT id, class, name, description, operation, num_operands, 
+               no_remainder, COALESCE(result_max, -1), is_available
         FROM equation_types
         WHERE class = $1 
     `
 
-	types := make([]generator.EquationType, 0)
-
 	rows, err := r.db.Query(query, class)
 	if err != nil {
-		return types, err
+		return nil, err
 	}
-
 	defer rows.Close()
+
+	types := make([]generator.EquationType, 0)
 
 	for rows.Next() {
 		t := generator.EquationType{}
@@ -94,23 +115,21 @@ func (r *TypeRepository) GetListTypes(class int) ([]generator.EquationType, erro
 			&t.Description,
 			&t.Operation,
 			&t.NumOperands,
-
-			&t.Operands[0][0],
-			&t.Operands[0][1],
-			&t.Operands[1][0],
-			&t.Operands[1][1],
-			&t.Operands[2][0],
-			&t.Operands[2][1],
-			&t.Operands[3][0],
-			&t.Operands[3][1],
-
-			&t.No_remainder,
-			&t.Result_max,
+			&t.NoRemainder,
+			&t.ResultMax,
+			&t.IsAvailable,
 		)
 
 		if err != nil {
 			return types, err
 		}
+
+		// Загружаем диапазоны операндов для этого типа уравнения
+		operands, err := r.getOperandRanges(t.ID)
+		if err != nil {
+			return types, err
+		}
+		t.Operands = operands
 
 		types = append(types, t)
 	}
@@ -123,9 +142,6 @@ func (r *TypeRepository) GetTypeById(id int) (generator.EquationType, error) {
 
 	err := r.db.QueryRow(`
 		SELECT id, class, name, description, operation, num_operands, 
-		       operand1_min, operand1_max, operand2_min, operand2_max, 
-		       COALESCE(operand3_min, -1), COALESCE(operand3_max, -1), 
-		       COALESCE(operand4_min, -1), COALESCE(operand4_max, -1), 
 		       no_remainder, COALESCE(result_max, -1), is_available
 		FROM equation_types
 		WHERE id = $1
@@ -136,50 +152,48 @@ func (r *TypeRepository) GetTypeById(id int) (generator.EquationType, error) {
 		&t.Description,
 		&t.Operation,
 		&t.NumOperands,
-
-		&t.Operands[0][0],
-		&t.Operands[0][1],
-		&t.Operands[1][0],
-		&t.Operands[1][1],
-		&t.Operands[2][0],
-		&t.Operands[2][1],
-		&t.Operands[3][0],
-		&t.Operands[3][1],
-
-		&t.No_remainder,
-		&t.Result_max,
-		&t.Is_available,
+		&t.NoRemainder,
+		&t.ResultMax,
+		&t.IsAvailable,
 	)
 
 	if err != nil {
 		return t, err
 	}
 
+	// Загружаем диапазоны операндов для этого типа уравнения
+	operands, err := r.getOperandRanges(id)
+	if err != nil {
+		return t, err
+	}
+	t.Operands = operands
+
 	return t, nil
 }
 
 // Create создает новый тип уравнения
 func (r *TypeRepository) Create(et generator.EquationType) (*generator.EquationType, error) {
+	// Начинаем транзакцию
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// Вставляем тип уравнения
 	query := `
 		INSERT INTO equation_types (
 			class, name, description, operation, num_operands,
-			operand1_min, operand1_max, operand2_min, operand2_max,
-			operand3_min, operand3_max, operand4_min, operand4_max,
 			no_remainder, result_max, is_available
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, class, name, description, operation, num_operands,
-		          operand1_min, operand1_max, operand2_min, operand2_max,
-		          operand3_min, operand3_max, operand4_min, operand4_max,
 		          no_remainder, result_max, is_available
 	`
 
 	var newEt generator.EquationType
-	err := r.db.QueryRow(query,
+	err = tx.QueryRow(query,
 		et.Class, et.Name, et.Description, et.Operation, et.NumOperands,
-		et.Operands[0][0], et.Operands[0][1], et.Operands[1][0], et.Operands[1][1],
-		nullIfMinusOne(et.Operands[2][0]), nullIfMinusOne(et.Operands[2][1]),
-		nullIfMinusOne(et.Operands[3][0]), nullIfMinusOne(et.Operands[3][1]),
-		et.No_remainder, nullIfMinusOne(et.Result_max), true,
+		et.NoRemainder, nullIfMinusOne(et.ResultMax), true,
 	).Scan(
 		&newEt.ID,
 		&newEt.Class,
@@ -187,48 +201,61 @@ func (r *TypeRepository) Create(et generator.EquationType) (*generator.EquationT
 		&newEt.Description,
 		&newEt.Operation,
 		&newEt.NumOperands,
-		&newEt.Operands[0][0],
-		&newEt.Operands[0][1],
-		&newEt.Operands[1][0],
-		&newEt.Operands[1][1],
-		&newEt.Operands[2][0],
-		&newEt.Operands[2][1],
-		&newEt.Operands[3][0],
-		&newEt.Operands[3][1],
-		&newEt.No_remainder,
-		&newEt.Result_max,
-		&newEt.Is_available,
+		&newEt.NoRemainder,
+		&newEt.ResultMax,
+		&newEt.IsAvailable,
 	)
 
 	if err != nil {
 		return nil, err
 	}
+
+	// Вставляем диапазоны операндов
+	for _, op := range et.Operands {
+		opQuery := `
+			INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value)
+			VALUES ($1, $2, $3, $4)
+		`
+		_, err = tx.Exec(opQuery, newEt.ID, op.Order, op.MinValue, op.MaxValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Коммитим транзакцию
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Загружаем полные данные с диапазонами операндов
+	newEt.Operands = et.Operands
 
 	return &newEt, nil
 }
 
 // Update обновляет тип уравнения
 func (r *TypeRepository) Update(et generator.EquationType) (*generator.EquationType, error) {
+	// Начинаем транзакцию
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// Обновляем тип уравнения
 	query := `
 		UPDATE equation_types SET
 			class = $1, name = $2, description = $3, operation = $4, num_operands = $5,
-			operand1_min = $6, operand1_max = $7, operand2_min = $8, operand2_max = $9,
-			operand3_min = $10, operand3_max = $11, operand4_min = $12, operand4_max = $13,
-			no_remainder = $14, result_max = $15, is_available = $16
-		WHERE id = $17
+			no_remainder = $6, result_max = $7, is_available = $8
+		WHERE id = $9
 		RETURNING id, class, name, description, operation, num_operands,
-		          operand1_min, operand1_max, operand2_min, operand2_max,
-		          operand3_min, operand3_max, operand4_min, operand4_max,
 		          no_remainder, result_max, is_available
 	`
 
 	var newEt generator.EquationType
-	err := r.db.QueryRow(query,
+	err = tx.QueryRow(query,
 		et.Class, et.Name, et.Description, et.Operation, et.NumOperands,
-		et.Operands[0][0], et.Operands[0][1], et.Operands[1][0], et.Operands[1][1],
-		nullIfMinusOne(et.Operands[2][0]), nullIfMinusOne(et.Operands[2][1]),
-		nullIfMinusOne(et.Operands[3][0]), nullIfMinusOne(et.Operands[3][1]),
-		et.No_remainder, nullIfMinusOne(et.Result_max), et.Is_available, et.ID,
+		et.NoRemainder, nullIfMinusOne(et.ResultMax), et.IsAvailable, et.ID,
 	).Scan(
 		&newEt.ID,
 		&newEt.Class,
@@ -236,22 +263,40 @@ func (r *TypeRepository) Update(et generator.EquationType) (*generator.EquationT
 		&newEt.Description,
 		&newEt.Operation,
 		&newEt.NumOperands,
-		&newEt.Operands[0][0],
-		&newEt.Operands[0][1],
-		&newEt.Operands[1][0],
-		&newEt.Operands[1][1],
-		&newEt.Operands[2][0],
-		&newEt.Operands[2][1],
-		&newEt.Operands[3][0],
-		&newEt.Operands[3][1],
-		&newEt.No_remainder,
-		&newEt.Result_max,
-		&newEt.Is_available,
+		&newEt.NoRemainder,
+		&newEt.ResultMax,
+		&newEt.IsAvailable,
 	)
 
 	if err != nil {
 		return nil, err
 	}
+
+	// Удаляем старые диапазоны операндов
+	_, err = tx.Exec(`DELETE FROM operand_ranges WHERE equation_type_id = $1`, et.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Вставляем новые диапазоны операндов
+	for _, op := range et.Operands {
+		opQuery := `
+			INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value)
+			VALUES ($1, $2, $3, $4)
+		`
+		_, err = tx.Exec(opQuery, et.ID, op.Order, op.MinValue, op.MaxValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Коммитим транзакцию
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Загружаем полные данные с диапазонами операндов
+	newEt.Operands = et.Operands
 
 	return &newEt, nil
 }

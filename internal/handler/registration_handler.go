@@ -99,7 +99,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,                         
 	})
 
-	session, _ := store.Get(r, "app-session")
+	session, _ := h.store.Get(r, "app-session")
 	session.Values["user_id"] = user.ID
 	session.Values["username"] = user.Username
 	session.Values["role"] = user.Role

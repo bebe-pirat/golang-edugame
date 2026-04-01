@@ -5,6 +5,7 @@ import (
 	"edugame/internal/handler"
 	middleware "edugame/internal/midlleware"
 	"edugame/internal/repository"
+	"edugame/internal/session"
 	"log"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func init() {
@@ -20,12 +23,27 @@ func init() {
 }
 
 func main() {
+	// Загружаем .env файл
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found")
+	}
+
 	err := database.InitDB()
 	if err != nil {
 		fmt.Printf("Ошибка инициализации БД: %v\n", err)
 		return
 	}
 	defer database.CloseDB()
+
+	// Получаем секретный ключ для сессий
+	secretKey := os.Getenv("SESSION_SECRET_KEY")
+	if secretKey == "" {
+		log.Fatal("SESSION_SECRET_KEY is required")
+	}
+
+	// Инициализируем хранилище сессий
+	session.InitStore(secretKey)
+	store := session.GetStore()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -38,12 +56,12 @@ func main() {
 	userProgressRepo := repository.NewUserProgressRepository(database.DB)
 
 	indexHandler := handler.NewIndexHandler()
-	equationHandler := handler.NewEquationHandler(userRepo, typeRepo, userProgressRepo)
-	statsHandler := handler.NewStatsHandler(userProgressRepo, userRepo)
-	loginHandler := handler.NewLoginHandler(userRepo)
-	registrationHandler := handler.NewRegistrationHandler(userRepo)
+	equationHandler := handler.NewEquationHandler(userRepo, typeRepo, userProgressRepo, store)
+	statsHandler := handler.NewStatsHandler(userProgressRepo, userRepo, store)
+	loginHandler := handler.NewLoginHandler(userRepo, store)
+	registrationHandler := handler.NewRegistrationHandler(userRepo, store)
 	homeHandler := handler.NewHomeHandler()
-	teacherHandlers := handler.NewTeacherHandlers(teacherRepo)
+	teacherHandlers := handler.NewTeacherHandlers(teacherRepo, store)
 
 	mux := http.NewServeMux()
 
