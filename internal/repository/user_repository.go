@@ -241,7 +241,7 @@ func (r *UserRepository) GetAllUsers() ([]entity.User, error) {
 // GetUserByRoleType получает пользователей по типу роли
 func (r *UserRepository) GetUserByRoleType(roleName string) ([]entity.User, error) {
 	query := `
-        SELECT u.id, u.username, u.role_id, u.fullname, u.email, u.school_id, u.created_at
+        SELECT u.id, u.username, u.role_id, u.fullname, u.created_at
         FROM users u
         JOIN roles r ON u.role_id = r.id
         WHERE r.name = $1
@@ -283,20 +283,15 @@ func (r *UserRepository) GetUserByRoleType(roleName string) ([]entity.User, erro
 
 // UpdateUser обновляет пользователя
 func (r *UserRepository) UpdateUser(id int, username, fullName, email string, roleID int, schoolID *int) (*entity.User, error) {
-	var userSchoolID sql.NullInt64
-	if schoolID != nil {
-		userSchoolID = sql.NullInt64{Int64: int64(*schoolID), Valid: true}
-	}
-
 	query := `
         UPDATE users
-        SET username = $1, fullname = $2, email = $3, role_id = $4, school_id = $5
-        WHERE id = $6
-        RETURNING id, username, role_id, fullname, email, school_id, created_at
+        SET username = $1, fullname = $2, role_id = $3
+        WHERE id = $4
+        RETURNING id, username, role_id, fullname, created_at
     `
 
 	var newUser entity.User
-	err := r.db.QueryRow(query, username, fullName, email, roleID, userSchoolID, id).Scan(
+	err := r.db.QueryRow(query, username, roleID, fullName, id).Scan(
 		&newUser.ID, &newUser.Username, &newUser.RoleID,
 		&newUser.FullName, &newUser.CreatedAt,
 	)

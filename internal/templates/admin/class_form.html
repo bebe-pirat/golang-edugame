@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+
+        <div class="header">
+            <h1><i class="fas fa-chalkboard-user"></i> {{.Title}}</h1>
+            <p class="subtitle">Управление образовательной платформой</p>
+        </div>
+    
+        <nav>
+            <a href="/admin/dashboard">Главная</a>
+            <a href="/admin/schools">Школы</a>
+            <a href="/admin/classes">Классы</a>
+            <a href="/admin/users">Пользователи</a>
+            <a href="/admin/equation-types">Типы уравнений</a>
+            <a href="/">На сайт</a>
+            <a href="/logout">Выход</a>
+        </nav>
+    
+        <form method="POST" action="{{if .Class}}/admin/classes/update{{else}}/admin/classes/create{{end}}">
+            {{if .Class}}
+            <input type="hidden" name="id" value="{{.Class.ID}}">
+            {{end}}
+    
+            <div class="form-group">
+                <label>Название класса *</label>
+                <input type="text" name="name" value="{{if .Class}}{{.Class.Name}}{{end}}" required placeholder="Например: 3А">
+            </div>
+    
+            <div class="form-group">
+                <label>Уровень (grade) *</label>
+                <input type="number" name="grade" value="{{if .Class}}{{.Class.Grade}}{{end}}" required min="1" max="11" placeholder="Например: 3">
+            </div>
+    
+            <div class="form-group">
+                <label>Учитель</label>
+                <select name="teacher_id">
+                    <option value="">-- Выберите учителя --</option>
+                    {{range .Teachers}}
+                    <option value="{{.ID}}" {{if and $.Class (eq .Class.TeacherID .ID)}}selected{{end}}>{{.FullName}}</option>
+                    {{end}}
+                </select>
+            </div>
+    
+            <div class="form-group">
+                <label>Школа</label>
+                <select name="school_id">
+                    <option value="">-- Выберите школу --</option>
+                    {{range .Schools}}
+                    <option value="{{.ID}}" {{if and $.Class (eq .Class.SchoolID .ID)}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+    
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <a href="/admin/classes" class="btn btn-secondary">Отмена</a>
+        </form>
+    </div>
+</body>
+</html>

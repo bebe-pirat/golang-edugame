@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.Title}}</title>
+   <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-chalkboard-user"></i> {{.Title}}</h1>
+            <p class="subtitle">Управление образовательной платформой</p>
+        </div>
+
+        <nav>
+            <a href="/admin/dashboard">Главная</a>
+            <a href="/admin/schools">Школы</a>
+            <a href="/admin/classes">Классы</a>
+            <a href="/admin/users">Пользователи</a>
+            <a href="/admin/equation-types">Типы уравнений</a>
+            <a href="/">На сайт</a>
+            <a href="/logout">Выход</a>
+        </nav>
+
+        <div class="dashboard">
+            <div class="class-card" onclick="window.location.href='/admin/schools'">
+                <div class="card-icon">
+                    <i class="fas fa-school"></i>
+                </div>
+                <h3>Школы</h3>
+                <div class="stat-number">{{.SchoolsCount}}</div>
+                <p>Всего школ в системе</p>
+                <a href="/admin/schools" class="btn">
+                    Управление школами <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="class-card" onclick="window.location.href='/admin/classes'">
+                <div class="card-icon">
+                    <i class="fas fa-chalkboard-user"></i>
+                </div>
+                <h3>Классы</h3>
+                <div class="stat-number">{{.ClassesCount}}</div>
+                <p>Всего классов в системе</p>
+                <a href="/admin/classes" class="btn">
+                    Управление классами <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="class-card" onclick="window.location.href='/admin/users'">
+                <div class="card-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3>Пользователи</h3>
+                <div class="stat-number">{{.UsersCount}}</div>
+                <p>Всего пользователей в системе</p>
+                <a href="/admin/users"  class="btn">
+                    Управление пользователями <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="class-card" onclick="window.location.href='/admin/equation-types'">
+                <div class="card-icon">
+                    <i class="fas fa-calculator"></i>
+                </div>
+                <h3>Типы уравнений</h3>
+                <div class="stat-number">{{.TypesCount}}</div>
+                <p>Всего типов уравнений</p>
+                <a href="/admin/equation-types" class="btn">
+                    Управление типами уравнений <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -91,7 +91,8 @@ func (r *TeacherRepository) GetClassStudents(classID int) ([]struct {
 		SELECT u.id, u.username, u.fullname
 		FROM users u
 		JOIN student_classes sc ON u.id = sc.student_id
-		WHERE sc.class_id = $1 AND u.role = 'student'
+		JOIN roles r ON u.role_id = r.id
+		WHERE sc.class_id = $1 AND r.name = 'student'
 		ORDER BY u.fullname
 	`
 
@@ -135,7 +136,8 @@ func (r *TeacherRepository) GetClassStatistics(classID int) (map[string]interfac
         FROM users u
         LEFT JOIN attempts a ON u.id = a.user_id
         JOIN student_classes sc ON u.id = sc.student_id
-        WHERE sc.class_id = $1 AND u.role = 'student'
+		JOIN roles r on r.id = u.role_id
+        WHERE sc.class_id = $1 AND r.name = 'student'
     `
 
 	var studentCount, totalAttempts, correctAttempts int
@@ -356,7 +358,8 @@ func (r *TeacherRepository) GetClassesStatistics() (map[int]map[string]interface
             COUNT(DISTINCT a.id) as total_attempts,
             COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0) as correct_attempts
         FROM student_classes sc
-        JOIN users u ON sc.student_id = u.id AND u.role = 'student'
+        JOIN users u ON sc.student_id = u.id 
+		JOIN roles r ON u.role_id = r.id AND r.name = 'student'
         LEFT JOIN attempts a ON u.id = a.user_id
         WHERE sc.class_id = ANY($1)
         GROUP BY sc.class_id
@@ -909,7 +912,8 @@ func (r *TeacherRepository) GetClassStudentsWithStats(classID int) ([]map[string
         FROM users u
         JOIN student_classes sc ON u.id = sc.student_id
         LEFT JOIN attempts a ON u.id = a.user_id
-        WHERE sc.class_id = $1 AND u.role = 'student'
+		JOIN roles r ON u.role_id = r.id
+        WHERE sc.class_id = $1 AND r.name = 'student'
         GROUP BY u.id, u.username, u.fullname
         ORDER BY u.fullname
     `

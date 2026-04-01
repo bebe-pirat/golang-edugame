@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-chalkboard-user"></i> {{.Title}}</h1>
+            <p class="subtitle">Управление образовательной платформой</p>
+        </div>
+    
+        <nav>
+            <a href="/admin/dashboard">Главная</a>
+            <a href="/admin/schools">Школы</a>
+            <a href="/admin/classes">Классы</a>
+            <a href="/admin/users">Пользователи</a>
+            <a href="/admin/equation-types">Типы уравнений</a>
+            <a href="/">На сайт</a>
+            <a href="/logout">Выход</a>
+        </nav>
+    
+        <form method="POST" action="{{if .School}}/admin/schools/update{{else}}/admin/schools/create{{end}}">
+            {{if .School}}
+            <input type="hidden" name="id" value="{{.School.ID}}">
+            {{end}}
+    
+            <div class="form-group">
+                <label>Название школы *</label>
+                <input type="text" name="name" value="{{if .School}}{{.School.Name}}{{end}}" required>
+            </div>
+    
+            <div class="form-group">
+                <label>Адрес</label>
+                <textarea name="address">{{if .School}}{{.School.Address}}{{end}}</textarea>
+            </div>
+    
+            <div class="form-group">
+                <label>Телефон</label>
+                <input type="text" name="phone" value="{{if .School}}{{.School.Phone}}{{end}}">
+            </div>
+    
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" value="{{if .School}}{{.School.Email}}{{end}}">
+            </div>
+    
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <a href="/admin/schools" class="btn btn-secondary">Отмена</a>
+        </form>
+    </div>
+</body>
+</html>

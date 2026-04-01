@@ -5,6 +5,7 @@ import (
 	"edugame/internal/repository"
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -154,7 +155,7 @@ func (h *TeacherHandlers) ClassStatistics(w http.ResponseWriter, r *http.Request
 	class, err := h.teacherRepo.GetTeacherClass(teacherID)
 	if err != nil {
 		http.Error(w, "Ошибка получения класса", http.StatusInternalServerError)
-		log.Println("Ошибка получения класса")
+		slog.Error("failed to get teacher's class", "error", err, "teacher_id", teacherID)
 		return
 	}
 

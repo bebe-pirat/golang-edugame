@@ -1,14 +1,11 @@
 package middleware
 
 import (
+	"edugame/internal/session"
+	"log/slog"
 	"net/http"
-	"os"
 	"strings"
-
-	"github.com/gorilla/sessions"
 )
-
-var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET_KEY")))
 
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,14 +27,20 @@ func RequireAuth(next http.Handler) http.Handler {
 			}
 		}
 
-		session, _ := store.Get(r, "app-session")
+		store := session.GetStore()
+		if store == nil {
+			http.Error(w, "Session store not initialized", http.StatusInternalServerError)
+			return
+		}
 
-		userID, userIDOk := session.Values["user_id"].(int)
-		role, roleOk := session.Values["role"].(string)
+		sess, _ := store.Get(r, "app-session")
+
+		userID, userIDOk := sess.Values["user_id"].(int)
+		role, roleOk := sess.Values["role"].(string)
 
 		if !userIDOk || userID == 0 {
-			session.Values["redirect_after_login"] = path
-			session.Save(r, w)
+			sess.Values["redirect_after_login"] = path
+			sess.Save(r, w)
 
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -45,7 +48,7 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		if roleOk {
 			if role == "teacher" && (path == "/home" || path == "/equation" || path == "/stats") {
-				http.Redirect(w, r, "/teacher_home", http.StatusSeeOther)
+				http.Redirect(w, r, "/teacher/class", http.StatusSeeOther)
 				return
 			}
 
@@ -63,9 +66,15 @@ func RequireAuth(next http.Handler) http.Handler {
 func RequireRoles(allowedRoles []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			session, _ := store.Get(r, "app-session")
+			store := session.GetStore()
+			if store == nil {
+				http.Error(w, "Session store not initialized", http.StatusInternalServerError)
+				slog.Info("failed to get session")
+				return
+			}
 
-			role, _ := session.Values["role"].(string)
+			sess, _ := store.Get(r, "app-session")
+			role, _ := sess.Values["role"].(string)
 			success := false
 			for _, value := range allowedRoles {
 				if role == value {

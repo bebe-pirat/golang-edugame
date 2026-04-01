@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+        <h1><i class="fas fa-chalkboard-user"></i> {{.Title}}</h1>
+        <p class="subtitle">Управление образовательной платформой</p>
+    </div>
+
+    <nav>
+        <a href="/admin/dashboard">Главная</a>
+        <a href="/admin/schools">Школы</a>
+        <a href="/admin/classes">Классы</a>
+        <a href="/admin/users">Пользователи</a>
+        <a href="/admin/equation-types">Типы уравнений</a>
+        <a href="/">На сайт</a>
+        <a href="/logout">Выход</a>
+    </nav>
+
+    <form method="POST" action="{{if .User}}/admin/users/update{{else}}/admin/users/create{{end}}">
+        {{if .User}}
+        <input type="hidden" name="id" value="{{.User.ID}}">
+        {{end}}
+
+        <div class="form-group">
+            <label>Username *</label>
+            <input type="text" name="username" value="{{if .User}}{{.User.Username}}{{end}}" required>
+        </div>
+
+        {{if not .User}}
+        <div class="form-group">
+            <label>Пароль *</label>
+            <input type="password" name="password" required>
+        </div>
+        {{end}}
+
+        <div class="form-group">
+            <label>ФИО *</label>
+            <input type="text" name="fullname" value="{{if .User}}{{.User.FullName}}{{end}}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" value="{{if .User}}{{.User.Email}}{{end}}">
+        </div>
+
+        <div class="form-group">
+            <label>Роль *</label>
+            <select name="role_id" required>
+                {{range .Roles}}
+                <option value="{{.ID}}" {{if and $.User (eq $.User.RoleID .ID)}}selected{{end}}>{{.Description}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Школа</label>
+            <select name="school_id">
+                <option value="">-- Выберите школу --</option>
+                {{range .Schools}}
+                <option value="{{.ID}}" {{if and $.User (eq $.User.SchoolID .ID)}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+        <a href="/admin/users" class="btn btn-secondary">Отмена</a>
+    </form>
+    </div>
+</body>
+</html>

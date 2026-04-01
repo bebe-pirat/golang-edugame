@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
 	"sort"
 
@@ -99,6 +100,8 @@ func (h *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Ошибка загрузки уравнений", http.StatusInternalServerError)
 		return
 	}
+
+	slog.Info("here", "listtypes", listTypes)
 
 	typeStats, err := h.userProgressRepo.GetUserTypeStatistics(userId)
 	if err != nil {
@@ -266,6 +269,7 @@ func (e *EquationHandler) generateAdaptiveEquations(
 		}
 
 		equationIndex++
+		slog.Info("amount of equations", "current index", equationIndex, "total", totalEquations)
 	}
 
 	shuffledEquations := make([]EquationWithID, len(equations))
@@ -296,6 +300,8 @@ func generateListOfEquations(types []generator.EquationType) ([]EquationWithID, 
 	eqs := make([]EquationWithID, internal.CountEqs)
 	typesCount := len(types)
 	gen := generator.NewGenerator()
+
+	slog.Info("here", "counteqs", internal.CountEqs)
 
 	for i := 1; i <= internal.CountEqs; i++ {
 		eq, err := gen.GenerateEquation(types[i%typesCount])

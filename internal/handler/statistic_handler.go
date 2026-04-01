@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -31,7 +32,7 @@ func NewStatsHandler(up *repository.UserProgressRepository, u *repository.UserRe
 			if dateStr == "" {
 				return "—"
 			}
-			return dateStr[:10] 
+			return dateStr[:10]
 		},
 		"gt": func(a, b int) bool {
 			return a > b
@@ -75,6 +76,8 @@ func (h *StatsHandler) StatsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ошибка получения статистики", http.StatusInternalServerError)
 		return
 	}
+
+	slog.Info("asdk", stats)
 
 	total, correct := h.GetTotalAndCorrectCount(stats)
 	fmt.Println("Количество типов для пользователя: ", len(stats))

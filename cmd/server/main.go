@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"edugame/internal/database"
 	"edugame/internal/handler"
 	middleware "edugame/internal/midlleware"
 	"edugame/internal/repository"
 	"edugame/internal/session"
+	"errors"
 	"log"
 	"log/slog"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"encoding/gob"
@@ -44,13 +48,11 @@ func main() {
 	}
 	defer database.CloseDB()
 
-	// Получаем секретный ключ для сессий
 	secretKey := os.Getenv("SESSION_SECRET_KEY")
 	if secretKey == "" {
 		log.Fatal("SESSION_SECRET_KEY is required")
 	}
 
-	// Инициализируем хранилище сессий
 	session.InitStore(secretKey)
 	store := session.GetStore()
 
@@ -63,6 +65,9 @@ func main() {
 	typeRepo := repository.NewTypeRepository(database.DB)
 	userRepo := repository.NewUserRepository(database.DB)
 	userProgressRepo := repository.NewUserProgressRepository(database.DB)
+	schoolRepo := repository.NewSchoolRepository(database.DB)
+	classRepo := repository.NewClassRepository(database.DB)
+	roleRepo := repository.NewRoleRepository(database.DB)
 
 	indexHandler := handler.NewIndexHandler()
 	equationHandler := handler.NewEquationHandler(userRepo, typeRepo, userProgressRepo, store)
@@ -71,6 +76,7 @@ func main() {
 	registrationHandler := handler.NewRegistrationHandler(userRepo, store)
 	homeHandler := handler.NewHomeHandler()
 	teacherHandlers := handler.NewTeacherHandlers(teacherRepo, store)
+	adminHandler := handler.NewAdminHandler(schoolRepo, classRepo, userRepo, roleRepo, typeRepo)
 
 	mux := http.NewServeMux()
 
@@ -118,6 +124,68 @@ func main() {
 	mux.Handle("/logout",
 		middleware.RequireAuth(http.HandlerFunc(loginHandler.Logout)))
 
+	// Админ-панель маршруты
+	mux.Handle("/admin",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.Dashboard)))
+	mux.Handle("/admin/dashboard",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.Dashboard)))
+
+	// Школы
+	mux.Handle("/admin/schools",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.Schools)))
+	mux.Handle("/admin/schools/new",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.SchoolForm)))
+	mux.Handle("/admin/schools/edit",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.SchoolForm)))
+	mux.Handle("/admin/schools/create",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.SchoolCreate)))
+	mux.Handle("/admin/schools/update",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.SchoolUpdate)))
+	mux.Handle("/admin/schools/delete",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.SchoolDelete)))
+
+	// Классы
+	mux.Handle("/admin/classes",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.Classes)))
+	mux.Handle("/admin/classes/new",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.ClassForm)))
+	mux.Handle("/admin/classes/edit",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.ClassForm)))
+	mux.Handle("/admin/classes/create",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.ClassCreate)))
+	mux.Handle("/admin/classes/update",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.ClassUpdate)))
+	mux.Handle("/admin/classes/delete",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.ClassDelete)))
+
+	// Пользователи
+	mux.Handle("/admin/users",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.Users)))
+	mux.Handle("/admin/users/new",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.UserForm)))
+	mux.Handle("/admin/users/edit",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.UserForm)))
+	mux.Handle("/admin/users/create",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.UserCreate)))
+	mux.Handle("/admin/users/update",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.UserUpdate)))
+	mux.Handle("/admin/users/delete",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.UserDelete)))
+
+	// Типы уравнений
+	mux.Handle("/admin/equation-types",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.EquationTypes)))
+	mux.Handle("/admin/equation-types/new",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.EquationTypeForm)))
+	mux.Handle("/admin/equation-types/edit",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.EquationTypeForm)))
+	mux.Handle("/admin/equation-types/create",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.EquationTypeCreate)))
+	mux.Handle("/admin/equation-types/update",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.EquationTypeUpdate)))
+	mux.Handle("/admin/equation-types/delete",
+		middleware.RequireRoles([]string{"admin"})(http.HandlerFunc(adminHandler.EquationTypeDelete)))
+
 	server := &http.Server{
 		Addr:         ":" + port,
 		Handler:      mux,
@@ -125,8 +193,29 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-	
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal(err)
+
+	go func() {
+		slog.Info("server started", "port", port)
+
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("server didn't started", "error", err)
+			return
+		}
+	}()
+
+	signalChan := make(chan os.Signal, 1)
+
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+
+	slog.Info("server is shutting down")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		slog.Error("server forced to shutdown", "error", err)
 	}
+
+	slog.Info("server exiting")
 }

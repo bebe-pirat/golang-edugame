@@ -333,3 +333,60 @@ AFTER UPDATE ON equation_types
 FOR EACH ROW
 WHEN (OLD.is_available IS DISTINCT FROM NEW.is_available)
 EXECUTE FUNCTION sync_equation_type_availability();
+
+INSERT INTO schools (name, address, phone, email) VALUES
+('Школа №1 им. А.С. Пушкина', 'ул. Ленина, 15, г. Москва', '+7 (495) 123-45-67', 'school1@edu.ru'),
+('Гимназия №5', 'пр. Мира, 28, г. Санкт-Петербург', '+7 (812) 987-65-43', 'gym5@edu.ru'),
+('СОШ №42', 'ул. Гагарина, 7, г. Новосибирск', '+7 (383) 246-80-00', 'school42@edu.ru');
+-- =====================================================
+-- 4. Заполнение пользователей (3 учителя, 9 учеников)
+-- =====================================================
+
+-- Учителя (role_id = 2)
+INSERT INTO users (username, password_hash, role_id, fullname) VALUES
+('teacher2', '$2a$10$ty8e/j4iC0H4hKkGcfXeKuYB8O0RFzwfdcxeZ.ddg79kNBatpqsfC', 2, 'Иванов Иван Иванович'),
+('teacher3', '$2a$10$DeuSuYQ8Lvv/5GqJ3SjgfeW8Yv9afBwE2F6Q9ihk4xGS3OnGQSNm6', 2, 'Петрова Мария Сергеевна');
+
+-- Ученики (role_id = 1)
+INSERT INTO users (username, password_hash, role_id, fullname) VALUES
+('student1', '$2a$10$odbmLZ392N1U1vDk8x7.MO8AhnPF.49OCyzjgBIm0Hx6UFgsbNVqy', 1, 'Алексеев Дмитрий Андреевич'),
+('student2', '$2a$10$r9SdCn5C187WtbZ0d.ZezufbYMQv45R67GB5t4m7A9TSGQ6erYw8e', 1, 'Борисова Анна Владимировна'),
+('student3', '$2a$10$LTB/YUlYCeMdr7x2av5/tOkfg9J7vPKJHOQdSbmNh72aM8c/uLmxy', 1, 'Васильев Кирилл Петрович'),
+('student4', '$2a$10$vXLOv5mhoV7xbKH/4vfvJe9rVXySUD1yhi7B6mkrAHg6uMLObo/1W', 1, 'Григорьева Екатерина Дмитриевна'),
+('student5', '$2a$10$ezyAU4h3Q54226cjvqw6ge7LEba9e4S2knRwXpjDxpHmPHUsxXDyK', 1, 'Дмитриев Максим Игоревич'),
+('student6', 'hash$2a$10$q9Yq5XdUClopShC3KjvPfev8CSuLo7.qiLxFZ1K/UEn8sddQR4k3O_student6', 1, 'Егорова София Алексеевна'),
+('student7', '$2a$10$W1UicfXkxR4qZe4kYMxAaOmV3ijJc3lyNpmBNkWN2xSrmWwP1zUs6', 1, 'Жуков Артём Сергеевич'),
+('student8', '$2a$10$9vVGJG3LMs6yKb.MBvOqtOC01L9l7Z42lBZfieehHkIkrbmxvlShK', 1, 'Зайцева Полина Николаевна'),
+('student9', '$2a$10$XBqsDmDZMXRnlqAUq9769uJkv8IGA92tNu7DXxaUHmM4Kt7hlwdQm', 1, 'Ильин Даниил Романович');
+
+INSERT INTO classes (name, grade, teacher_id, school_id) VALUES
+('3А класс', 3, (SELECT id FROM users WHERE username = 'teacher1'), (SELECT id FROM schools WHERE name LIKE '%Пушкина%' LIMIT 1)),
+('3Б класс', 3, (SELECT id FROM users WHERE username = 'teacher2'), (SELECT id FROM schools WHERE name LIKE '%Пушкина%' LIMIT 1)),
+('4А класс', 4, (SELECT id FROM users WHERE username = 'teacher3'), (SELECT id FROM schools WHERE name LIKE '%Гимназия%' LIMIT 1));
+-- =====================================================
+-- 5. Заполнение student_classes (распределение учеников по классам)
+-- =====================================================
+-- 3А класс: ученики 1-3
+INSERT INTO student_classes (student_id, class_id) VALUES
+((SELECT id FROM users WHERE username = 'student1'), (SELECT id FROM classes WHERE name = '3А класс' LIMIT 1)),
+((SELECT id FROM users WHERE username = 'student2'), (SELECT id FROM classes WHERE name = '3А класс' LIMIT 1)),
+((SELECT id FROM users WHERE username = 'student3'), (SELECT id FROM classes WHERE name = '3А класс' LIMIT 1));
+
+-- 3Б класс: ученики 4-6
+INSERT INTO student_classes (student_id, class_id) VALUES
+((SELECT id FROM users WHERE username = 'student4'), (SELECT id FROM classes WHERE name = '3Б класс' LIMIT 1)),
+((SELECT id FROM users WHERE username = 'student5'), (SELECT id FROM classes WHERE name = '3Б класс' LIMIT 1)),
+((SELECT id FROM users WHERE username = 'student6'), (SELECT id FROM classes WHERE name = '3Б класс' LIMIT 1));
+
+-- 4А класс: ученики 7-9
+INSERT INTO student_classes (student_id, class_id) VALUES
+((SELECT id FROM users WHERE username = 'student7'), (SELECT id FROM classes WHERE name = '4А класс' LIMIT 1)),
+((SELECT id FROM users WHERE username = 'student8'), (SELECT id FROM classes WHERE name = '4А класс' LIMIT 1)),
+((SELECT id FROM users WHERE username = 'student9'), (SELECT id FROM classes WHERE name = '4А класс' LIMIT 1));INSERT INTO classes (name, grade, teacher_id, school_id) VALUES
+('3А класс', 3, (SELECT id FROM users WHERE username = 'ivanov_teacher'), (SELECT id FROM schools WHERE name LIKE '%Пушкина%' LIMIT 1)),
+('3Б класс', 3, (SELECT id FROM users WHERE username = 'petrova_teacher'), (SELECT id FROM schools WHERE name LIKE '%Пушкина%' LIMIT 1)),
+('4А класс', 4, (SELECT id FROM users WHERE username = 'sidorov_teacher'), (SELECT id FROM schools WHERE name LIKE '%Гимназия%' LIMIT 1));
+
+insert into users (username, password_hash, role_id, fullname)
+VALUES ('admin', '$2a$10$2fSQHY4XZrlDyQmYG3KCjOzagTp7V4NrTSCfkpB76hVjxLi2FsA.i', 3, 'dasha'), 
+('director', '$2a$10$ajBptZmuBa/AFx89G66b/.zSjTpQhfFscRq6TTU4Mdq5/Ynffuogu', 4, 'director');

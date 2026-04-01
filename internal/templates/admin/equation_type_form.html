@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+
+        <div class="header">
+        <h1><i class="fas fa-chalkboard-user"></i> {{.Title}}</h1>
+            <p class="subtitle">Управление образовательной платформой</p>
+        </div>
+    
+        <nav>
+            <a href="/admin/dashboard">Главная</a>
+            <a href="/admin/schools">Школы</a>
+            <a href="/admin/classes">Классы</a>
+            <a href="/admin/users">Пользователи</a>
+            <a href="/admin/equation-types">Типы уравнений</a>
+            <a href="/">На сайт</a>
+            <a href="/logout">Выход</a>
+        </nav>
+    
+        <form method="POST" action="{{if .Type}}/admin/equation-types/update{{else}}/admin/equation-types/create{{end}}">
+            {{if .Type}}
+            <input type="hidden" name="id" value="{{.Type.ID}}">
+            {{end}}
+    
+            <div class="form-group">
+                <label>Класс (grade) *</label>
+                <input type="number" name="class" value="{{if .Type}}{{.Type.Class}}{{end}}" required min="1" max="11">
+            </div>
+    
+            <div class="form-group">
+                <label>Название *</label>
+                <input type="text" name="name" value="{{if .Type}}{{.Type.Name}}{{end}}" required>
+            </div>
+    
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea name="description">{{if .Type}}{{.Type.Description}}{{end}}</textarea>
+            </div>
+    
+            <div class="form-group">
+                <label>Операция *</label>
+                <select name="operation" required>
+                    <option value="+" {{if and .Type (eq .Type.Operation "+")}}selected{{end}}>Сложение (+)</option>
+                    <option value="-" {{if and .Type (eq .Type.Operation "-")}}selected{{end}}>Вычитание (-)</option>
+                    <option value="*" {{if and .Type (eq .Type.Operation "*")}}selected{{end}}>Умножение (*)</option>
+                    <option value="/" {{if and .Type (eq .Type.Operation "/")}}selected{{end}}>Деление (/)</option>
+                    <option value="+-" {{if and .Type (eq .Type.Operation "+-")}}selected{{end}}>Случайно + или -</option>
+                    <option value="+-*/" {{if and .Type (eq .Type.Operation "+-*/")}}selected{{end}}>Все операции</option>
+                </select>
+            </div>
+    
+            <div class="form-group">
+                <label>Количество операндов *</label>
+                <input type="number" name="num_operands" value="{{if .Type}}{{.Type.NumOperands}}{{else}}2{{end}}" required min="2" max="10">
+            </div>
+    
+            <div class="form-group">
+                <label>Максимум результата (оставьте 0 для без ограничений)</label>
+                <input type="number" name="result_max" value="{{if .Type}}{{.Type.ResultMax}}{{end}}" min="0">
+            </div>
+    
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="no_remainder" {{if and .Type .Type.NoRemainder}}checked{{end}}>
+                    Деление без остатка
+                </label>
+            </div>
+    
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_available" {{if not .Type}}checked{{else if .Type.IsAvailable}}checked{{end}}>
+                    Доступен для учеников
+                </label>
+            </div>
+    
+            <h3>Диапазоны операндов</h3>
+    
+            <!-- Операнд 1 -->
+            <div class="operand-range">
+                <h4>Операнд 1</h4>
+                <input type="number" name="operand1_min" placeholder="Мин" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 1}}{{index .Type.OperandRanges 0 | index "MinValue"}}{{else}}1{{end}}{{else}}1{{end}}">
+                <input type="number" name="operand1_max" placeholder="Макс" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 1}}{{index .Type.OperandRanges 0 | index "MaxValue"}}{{else}}10{{end}}{{else}}10{{end}}">
+            </div>
+    
+            <!-- Операнд 2 -->
+            <div class="operand-range">
+                <h4>Операнд 2</h4>
+                <input type="number" name="operand2_min" placeholder="Мин" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 2}}{{index .Type.OperandRanges 1 | index "MinValue"}}{{else}}1{{end}}{{else}}1{{end}}">
+                <input type="number" name="operand2_max" placeholder="Макс" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 2}}{{index .Type.OperandRanges 1 | index "MaxValue"}}{{else}}10{{end}}{{else}}10{{end}}">
+            </div>
+    
+            <!-- Операнд 3 -->
+            <div class="operand-range">
+                <h4>Операнд 3</h4>
+                <input type="number" name="operand3_min" placeholder="Мин" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 3}}{{index .Type.OperandRanges 2 | index "MinValue"}}{{else}}1{{end}}{{else}}1{{end}}">
+                <input type="number" name="operand3_max" placeholder="Макс" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 3}}{{index .Type.OperandRanges 2 | index "MaxValue"}}{{else}}10{{end}}{{else}}10{{end}}">
+            </div>
+    
+            <!-- Операнд 4 -->
+            <div class="operand-range">
+                <h4>Операнд 4</h4>
+                <input type="number" name="operand4_min" placeholder="Мин" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 4}}{{index .Type.OperandRanges 3 | index "MinValue"}}{{else}}1{{end}}{{else}}1{{end}}">
+                <input type="number" name="operand4_max" placeholder="Макс" value="{{if .Type}}{{if ge (len .Type.OperandRanges) 4}}{{index .Type.OperandRanges 3 | index "MaxValue"}}{{else}}10{{end}}{{else}}10{{end}}">
+            </div>
+    
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <a href="/admin/equation-types" class="btn btn-secondary">Отмена</a>
+        </form>
+    </div>
+</body>
+</html>

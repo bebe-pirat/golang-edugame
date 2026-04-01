@@ -5,8 +5,10 @@ import (
 	"edugame/internal/generator"
 	"edugame/internal/repository"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type AdminHandler struct {
@@ -62,7 +64,10 @@ func (h *AdminHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		"TypesCount":   len(types),
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/dashboard.html", data)
+	err := h.tmpl.ExecuteTemplate(w, "dashboard.html", data)
+	if err != nil {
+		slog.Error("failed to load data to templete", "error", err)
+	}
 }
 
 // ============= ШКОЛЫ =============
@@ -80,7 +85,7 @@ func (h *AdminHandler) Schools(w http.ResponseWriter, r *http.Request) {
 		"Schools": schools,
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/schools.html", data)
+	h.tmpl.ExecuteTemplate(w, "schools.html", data)
 }
 
 // SchoolForm - форма создания/редактирования школы
@@ -103,7 +108,7 @@ func (h *AdminHandler) SchoolForm(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/school_form.html", data)
+	h.tmpl.ExecuteTemplate(w, "school_form.html", data)
 }
 
 // SchoolCreate - создание школы
@@ -198,7 +203,7 @@ func (h *AdminHandler) Classes(w http.ResponseWriter, r *http.Request) {
 		"Teachers": teachers,
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/classes.html", data)
+	h.tmpl.ExecuteTemplate(w, "classes.html", data)
 }
 
 // ClassForm - форма создания/редактирования класса
@@ -226,7 +231,7 @@ func (h *AdminHandler) ClassForm(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/class_form.html", data)
+	h.tmpl.ExecuteTemplate(w, "class_form.html", data)
 }
 
 // ClassCreate - создание класса
@@ -316,10 +321,10 @@ func (h *AdminHandler) ClassDelete(w http.ResponseWriter, r *http.Request) {
 // Users - список всех пользователей
 func (h *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 	roleFilter := r.URL.Query().Get("role")
+	roleFilter = strings.TrimSpace(roleFilter)
 
 	var users []entity.User
 	var err error
-
 	if roleFilter != "" {
 		users, err = h.userRepo.GetUserByRoleType(roleFilter)
 	} else {
@@ -328,6 +333,7 @@ func (h *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, "Ошибка получения пользователей", http.StatusInternalServerError)
+		slog.Error("failed to get users", "error", err)
 		return
 	}
 
@@ -342,7 +348,7 @@ func (h *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 		"RoleFilter": roleFilter,
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/users.html", data)
+	h.tmpl.ExecuteTemplate(w, "users.html", data)
 }
 
 // UserForm - форма создания/редактирования пользователя
@@ -372,7 +378,7 @@ func (h *AdminHandler) UserForm(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/user_form.html", data)
+	h.tmpl.ExecuteTemplate(w, "user_form.html", data)
 }
 
 // UserCreate - создание пользователя
@@ -474,7 +480,7 @@ func (h *AdminHandler) EquationTypes(w http.ResponseWriter, r *http.Request) {
 		"Types": types,
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/equation_types.html", data)
+	h.tmpl.ExecuteTemplate(w, "equation_types.html", data)
 }
 
 // EquationTypeForm - форма создания/редактирования типа уравнения
@@ -497,7 +503,7 @@ func (h *AdminHandler) EquationTypeForm(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "admin/equation_type_form.html", data)
+	h.tmpl.ExecuteTemplate(w, "equation_type_form.html", data)
 }
 
 // EquationTypeCreate - создание типа уравнения

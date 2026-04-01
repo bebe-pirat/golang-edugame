@@ -43,6 +43,8 @@ func (h *LoginHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/home", http.StatusSeeOther)
 		case "director":
 			http.Redirect(w, r, "/director", http.StatusSeeOther)
+		case "admin":
+			http.Redirect(w, r, "/admin/dashboard", http.StatusSeeOther)
 		default:
 			http.Redirect(w, r, "/index", http.StatusSeeOther)
 		}
@@ -123,6 +125,8 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/teacher/class", http.StatusSeeOther)
 	case "director":
 		http.Redirect(w, r, "/director", http.StatusSeeOther)
+	case "admin":
+		http.Redirect(w, r, "/admin/dashboard", http.StatusSeeOther)
 	default:
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
