@@ -8,15 +8,18 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+
+	"github.com/gorilla/sessions"
 )
 
 type StatsHandler struct {
 	tmpl             *template.Template
 	userProgressRepo *repository.UserProgressRepository
 	userRepo         *repository.UserRepository
+	store            *sessions.CookieStore
 }
 
-func NewStatsHandler(up *repository.UserProgressRepository, u *repository.UserRepository) *StatsHandler {
+func NewStatsHandler(up *repository.UserProgressRepository, u *repository.UserRepository, store *sessions.CookieStore) *StatsHandler {
 	funcMap := template.FuncMap{
 		"percent": func(correct, total int) int {
 			if total == 0 {
@@ -43,6 +46,7 @@ func NewStatsHandler(up *repository.UserProgressRepository, u *repository.UserRe
 		tmpl:             tmpl,
 		userProgressRepo: up,
 		userRepo:         u,
+		store:            store,
 	}
 }
 
@@ -52,7 +56,7 @@ func (h *StatsHandler) StatsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := store.Get(r, "app-session")
+	session, err := h.store.Get(r, "app-session")
 	if err != nil {
 		fmt.Println("Ошибка получения сессии:", err)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)

@@ -17,7 +17,18 @@ CREATE TABLE IF NOT EXISTS schools (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Таблица типов уравнений
+-- 3. Таблица диапазонов операндов (вынесена в отдельную таблицу)
+CREATE TABLE IF NOT EXISTS operand_ranges (
+    id SERIAL PRIMARY KEY,
+    equation_type_id INTEGER NOT NULL REFERENCES equation_types(id) ON DELETE CASCADE,
+    operand_order INTEGER NOT NULL CHECK (operand_order >= 1), -- Порядок операнда (1, 2, 3, ...)
+    min_value INTEGER DEFAULT 0,
+    max_value INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(equation_type_id, operand_order)
+);
+
+-- 3. Таблица типов уравнений (обновленная структура)
 CREATE TABLE IF NOT EXISTS equation_types (
     id SERIAL PRIMARY KEY,
     class INTEGER NOT NULL, -- 3, 4 и т.д.
@@ -26,18 +37,7 @@ CREATE TABLE IF NOT EXISTS equation_types (
     
     -- Поля для генерации
     operation VARCHAR(10) NOT NULL, -- '+', '-', '*', '/', '+-' (значит, случайный выбор + или -)
-    num_operands INTEGER NOT NULL DEFAULT 2, -- Количество чисел в выражении (2, 3, 4)
-    
-    -- ОГРАНИЧЕНИЯ НА ЧИСЛА (основной подход)
-    -- Для каждого операнда задаем диапазон и дополнительные условия
-    operand1_min INTEGER DEFAULT 0,
-    operand1_max INTEGER DEFAULT 0,
-    operand2_min INTEGER DEFAULT 0,
-    operand2_max INTEGER DEFAULT 0,
-    operand3_min INTEGER DEFAULT NULL, -- NULL, если операнда нет
-    operand3_max INTEGER DEFAULT NULL,
-    operand4_min INTEGER DEFAULT NULL,
-    operand4_max INTEGER DEFAULT NULL,
+    num_operands INTEGER NOT NULL DEFAULT 2, -- Количество чисел в выражении (2, 3, 4, ...)
     
     -- Специальные условия
     no_remainder BOOLEAN DEFAULT FALSE, -- Для деления без остатка
@@ -143,30 +143,99 @@ INSERT INTO roles (name, description) VALUES
 ('director', 'Директор');
 
 -- Заполнение типов уравнений
+-- Сначала вставляем типы уравнений без диапазонов операндов
 INSERT INTO equation_types 
-(class, name, description, operation, num_operands, 
-operand1_min, operand1_max, operand2_min, operand2_max, result_max, no_remainder, is_available) VALUES
-
+(class, name, description, operation, num_operands, result_max, no_remainder, is_available) VALUES
 -- 3 класс (основные)
-(3, 'Сложение/вычитание (2-знач. с 1-знач.)', 'До 90', '+-', 2, 10, 90, 1, 9, 90, FALSE),
-(3, 'Сложение/вычитание (2-знач. с 2-знач.)', 'До 50', '+-', 2, 10, 50, 10, 50, NULL, FALSE),
-(3, 'Умножение (2-знач. на 1-знач.)', 'До 100', '*', 2, 10, 99, 2, 9, 100, FALSE),
-(3, 'Деление (без остатка)', 'До 100', '/', 2, 10, 100, 2, 10, NULL, TRUE),
+(3, 'Сложение/вычитание (2-знач. с 1-знач.)', 'До 90', '+-', 2, 90, FALSE, TRUE),
+(3, 'Сложение/вычитание (2-знач. с 2-знач.)', 'До 50', '+-', 2, NULL, FALSE, TRUE),
+(3, 'Умножение (2-знач. на 1-знач.)', 'До 100', '*', 2, 100, FALSE, TRUE),
+(3, 'Деление (без остатка)', 'До 100', '/', 2, NULL, TRUE, TRUE),
 
 -- 3 класс (будущие расширения - пока is_active = FALSE)
-(3, 'Выражение из 3 операндов', 'До 33', '+-*/', 3, 1, 33, 1, 33, 100, FALSE),
-(3, 'Выражение из 4 операндов', 'До 20', '+-*/', 4, 1, 20, 1, 20, 100, FALSE),
-(3, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 1000', '+-', 2, 100, 1000, 100, 1000, 1000, FALSE, FALSE),
-(3, 'Сложение/вычитание (3-знач. с 2-знач.)', 'До 1000', '+-', 2, 100, 1000, 10, 100, 1000, FALSE, FALSE),
-(3, 'Умножение (3-знач. на 1-знач.)', 'До 1000', '*', 2, 100, 999, 2, 9, 1000, FALSE, FALSE),
-(3, 'Деление (3-знач. на 1-знач.)', 'До 1000', '/', 2, 100, 999, 2, 9, 1000, FALSE, FALSE),
+(3, 'Выражение из 3 операндов', 'До 33', '+-*/', 3, 100, FALSE, FALSE),
+(3, 'Выражение из 4 операндов', 'До 20', '+-*/', 4, 100, FALSE, FALSE),
+(3, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 1000', '+-', 2, 1000, FALSE, FALSE),
+(3, 'Сложение/вычитание (3-знач. с 2-знач.)', 'До 1000', '+-', 2, 1000, FALSE, FALSE),
+(3, 'Умножение (3-знач. на 1-знач.)', 'До 1000', '*', 2, 1000, FALSE, FALSE),
+(3, 'Деление (3-знач. на 1-знач.)', 'До 1000', '/', 2, 1000, FALSE, FALSE),
 
 -- 4 класс
-(4, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 500', '+-', 2, 100, 500, 100, 500, 500, FALSE),
-(4, 'Умножение (3-знач. на 1-знач.)', 'До 500', '*', 2, 100, 500, 2, 9, 500, FALSE),
+(4, 'Сложение/вычитание (3-знач. с 3-знач.)', 'До 500', '+-', 2, 500, FALSE, TRUE),
+(4, 'Умножение (3-знач. на 1-знач.)', 'До 500', '*', 2, 500, FALSE, TRUE),
 
 -- 4 класс (будущие расширения)
-(4, 'Выражение из 3 чисел', 'До 333', '+-*/', 3, 100, 333, 100, 333, 1000, FALSE);
+(4, 'Выражение из 3 чисел', 'До 333', '+-*/', 3, 1000, FALSE, FALSE);
+
+-- Теперь добавляем диапазоны операндов для каждого типа уравнения
+-- ID 1: Сложение/вычитание (2-знач. с 1-знач.)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(1, 1, 10, 90),  -- первый операнд: 10-90
+(1, 2, 1, 9);    -- второй операнд: 1-9
+
+-- ID 2: Сложение/вычитание (2-знач. с 2-знач.)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(2, 1, 10, 50),
+(2, 2, 10, 50);
+
+-- ID 3: Умножение (2-знач. на 1-знач.)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(3, 1, 10, 99),
+(3, 2, 2, 9);
+
+-- ID 4: Деление (без остатка)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(4, 1, 10, 100),
+(4, 2, 2, 10);
+
+-- ID 5: Выражение из 3 операндов
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(5, 1, 1, 33),
+(5, 2, 1, 33),
+(5, 3, 1, 33);
+
+-- ID 6: Выражение из 4 операндов
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(6, 1, 1, 20),
+(6, 2, 1, 20),
+(6, 3, 1, 20),
+(6, 4, 1, 20);
+
+-- ID 7: Сложение/вычитание (3-знач. с 3-знач.)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(7, 1, 100, 1000),
+(7, 2, 100, 1000);
+
+-- ID 8: Сложение/вычитание (3-знач. с 2-знач.)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(8, 1, 100, 1000),
+(8, 2, 10, 100);
+
+-- ID 9: Умножение (3-знач. на 1-знач.)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(9, 1, 100, 999),
+(9, 2, 2, 9);
+
+-- ID 10: Деление (3-знач. на 1-знач.)
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(10, 1, 100, 999),
+(10, 2, 2, 9);
+
+-- ID 11: Сложение/вычитание (3-знач. с 3-знач.) 4 класс
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(11, 1, 100, 500),
+(11, 2, 100, 500);
+
+-- ID 12: Умножение (3-знач. на 1-знач.) 4 класс
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(12, 1, 100, 500),
+(12, 2, 2, 9);
+
+-- ID 13: Выражение из 3 чисел 4 класс
+INSERT INTO operand_ranges (equation_type_id, operand_order, min_value, max_value) VALUES
+(13, 1, 100, 333),
+(13, 2, 100, 333),
+(13, 3, 100, 333);
 
 -- Функция для обработки создания ученика
 CREATE OR REPLACE FUNCTION create_user_progress_for_new_student()

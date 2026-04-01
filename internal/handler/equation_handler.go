@@ -6,18 +6,16 @@ import (
 	"edugame/internal/entity"
 	"edugame/internal/generator"
 	"edugame/internal/repository"
+	"edugame/internal/session"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 	"sort"
 
 	"github.com/gorilla/sessions"
 )
-
-var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET_KEY")))
 
 type EquationHandler struct {
 	tmpl             *template.Template
@@ -25,9 +23,10 @@ type EquationHandler struct {
 	typeRepo         *repository.TypeRepository
 	userProgressRepo *repository.UserProgressRepository
 	gen              *generator.Generator
+	store            *sessions.CookieStore
 }
 
-func NewEquationHandler(userRepo *repository.UserRepository, typeRepo *repository.TypeRepository, userProgressRepo *repository.UserProgressRepository) *EquationHandler {
+func NewEquationHandler(userRepo *repository.UserRepository, typeRepo *repository.TypeRepository, userProgressRepo *repository.UserProgressRepository, store *sessions.CookieStore) *EquationHandler {
 	tmpl := template.Must(template.ParseFiles("internal/templates/equation.html"))
 
 	return &EquationHandler{
@@ -36,6 +35,7 @@ func NewEquationHandler(userRepo *repository.UserRepository, typeRepo *repositor
 		typeRepo:         typeRepo,
 		userProgressRepo: userProgressRepo,
 		gen:              generator.NewGenerator(),
+		store:            store,
 	}
 }
 
@@ -64,7 +64,7 @@ func NewEquationData(list []EquationWithID, class int) *EquationData {
 }
 
 func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request) {
-	session, err := store.Get(r, "app-session")
+	session, err := h.store.Get(r, "app-session")
 	if err != nil {
 		log.Println("Ошибка получения сессии:", err)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -121,7 +121,7 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 		log.Printf("  %d: %s (ответ: %s)\n", i+1, eq.Eq.Text, eq.Eq.CorrectAnswer)
 	}
 
-	session, _ = store.Get(r, "equations-session")
+	session, _ = h.store.Get(r, "equations-session")
 	correctAnswers := make(map[int]string)
 	for i, eq := range listEquations {
 		correctAnswers[i] = eq.Eq.CorrectAnswer
@@ -312,7 +312,7 @@ func generateListOfEquations(types []generator.EquationType) ([]EquationWithID, 
 }
 
 func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "equations-session")
+	session, _ := h.store.Get(r, "equations-session")
 	correctAnswers, ok := session.Values["correct_answers"].(map[int]string)
 
 	if !ok {
@@ -394,7 +394,7 @@ func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Req
 }
 
 func getUserIdFromSession(r *http.Request) (int, error) {
-	session, err := store.Get(r, "app-session")
+	session, err := h.store.Get(r, "app-session")
 	if err != nil {
 		return 0, err
 	}

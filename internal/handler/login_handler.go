@@ -7,25 +7,29 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gorilla/sessions"
 )
 
 type LoginHandler struct {
 	userRepo *repository.UserRepository
 	tmpl     *template.Template
+	store    *sessions.CookieStore
 }
 
-func NewLoginHandler(userRepo *repository.UserRepository) *LoginHandler {
+func NewLoginHandler(userRepo *repository.UserRepository, store *sessions.CookieStore) *LoginHandler {
 	tmpl := template.Must(template.ParseFiles(
 		"internal/templates/login.html",
 	))
 	return &LoginHandler{
 		userRepo: userRepo,
 		tmpl:     tmpl,
+		store:    store,
 	}
 }
 
 func (h *LoginHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "app-session")
+	session, _ := h.store.Get(r, "app-session")
 	if userID, ok := session.Values["user_id"].(int); ok && userID > 0 {
 		role, ok := session.Values["role"].(string)
 		if !ok {
@@ -99,7 +103,7 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	session, _ := store.Get(r, "app-session")
+	session, _ := h.store.Get(r, "app-session")
 	session.Values["user_id"] = user.ID
 	session.Values["username"] = user.Username
 	session.Values["role"] = user.Role
@@ -140,7 +144,7 @@ func (h *LoginHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 
-	session, _ := store.Get(r, "app-session")
+	session, _ := h.store.Get(r, "app-session")
 	session.Options.MaxAge = -1 // Удаляем сессию
 	session.Save(r, w)
 

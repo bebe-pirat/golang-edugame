@@ -9,18 +9,23 @@ import (
 	"time"
 )
 
+type OperandRange struct {
+	Order   int `json:"order"`
+	MinValue int `json:"min_value"`
+	MaxValue int `json:"max_value"`
+}
+
 type EquationType struct {
-	ID          int
-	Class       int
-	Name        string
-	Description string
-	Operation   string
-	NumOperands int
-
-	Operands [4][2]int
-
-	No_remainder bool
-	Result_max   int
+	ID          int             `json:"id"`
+	Class       int             `json:"class"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Operation   string          `json:"operation"`
+	NumOperands int             `json:"num_operands"`
+	Operands    []OperandRange  `json:"operands"` // Динамический срез операндов
+	NoRemainder bool            `json:"no_remainder"`
+	ResultMax   int             `json:"result_max"`
+	IsAvailable bool            `json:"is_available"`
 }
 
 type Equation struct {
@@ -55,7 +60,9 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 	for {
 		runes := []rune(t.Operation)
 		for i := 0; i < t.NumOperands; i++ {
-			vars[i] = strconv.Itoa(g.randSource.Intn(t.Operands[i][1]-t.Operands[i][0]) + t.Operands[i][0])
+			// Используем динамический срез операндов вместо фиксированного массива
+			operandRange := t.Operands[i]
+			vars[i] = strconv.Itoa(g.randSource.Intn(operandRange.MaxValue-operandRange.MinValue) + operandRange.MinValue)
 			expr[i*2] = vars[i]
 			eqStr += vars[i]
 
@@ -73,8 +80,8 @@ func (g *Generator) GenerateEquation(t EquationType) (Equation, error) {
 		}
 		eqStr += "= ?"
 
-		log.Printf("dsa")
-		m := entity.NewMather(expr, t.Result_max)
+		log.Printf("Generating equation: %s", eqStr)
+		m := entity.NewMather(expr, t.ResultMax)
 		correctAnswer, err = m.Calculate()
 		if err == nil {
 			break
