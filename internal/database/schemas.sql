@@ -1,4 +1,23 @@
--- 1. Таблица типов уравнений
+-- 1. Таблица ролей
+CREATE TABLE IF NOT EXISTS roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Таблица школ
+CREATE TABLE IF NOT EXISTS schools (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(256) NOT NULL,
+    address TEXT,
+    phone VARCHAR(50),
+    email VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Таблица типов уравнений
 CREATE TABLE IF NOT EXISTS equation_types (
     id SERIAL PRIMARY KEY,
     class INTEGER NOT NULL, -- 3, 4 и т.д.
@@ -24,26 +43,30 @@ CREATE TABLE IF NOT EXISTS equation_types (
     no_remainder BOOLEAN DEFAULT FALSE, -- Для деления без остатка
     result_max INTEGER DEFAULT NULL, -- Ограничение на результат (например, "до 90")
     
+    is_available BOOLEAN DEFAULT TRUE, -- Доступен ли тип уравнений
+    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Таблица пользователей
+-- 4. Таблица пользователей
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(100) NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'admin', 'director')),
+    role_id INTEGER NOT NULL REFERENCES roles(id) DEFAULT 1,
     fullname VARCHAR(256) NOT NULL,
+    email VARCHAR(100),
+    school_id INTEGER REFERENCES schools(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    email VARCHAR(50),
 );
 
--- 3. Таблица классов
+-- 5. Таблица классов
 CREATE TABLE IF NOT EXISTS classes (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     grade INTEGER,
     teacher_id INTEGER REFERENCES users(id),
+    school_id INTEGER REFERENCES schools(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -55,7 +78,7 @@ CREATE TABLE IF NOT EXISTS student_classes (
     PRIMARY KEY (student_id, class_id)
 );
 
--- 5. Таблица попыток
+-- 6. Таблица попыток
 CREATE TABLE IF NOT EXISTS attempts (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -72,7 +95,7 @@ CREATE TABLE IF NOT EXISTS attempts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Таблица прогресса пользователя по типам уравнений
+-- 7. Таблица прогресса пользователя по типам уравнений
 CREATE TABLE IF NOT EXISTS user_progress (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -94,7 +117,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Таблица сессий для авторизации
+-- 8. Таблица сессий для авторизации
 CREATE TABLE IF NOT EXISTS user_sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -110,8 +133,16 @@ CREATE INDEX IF NOT EXISTS idx_attempts_created_at ON attempts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_attempts_is_correct ON attempts(is_correct);
 CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_progress_type_id ON user_progress(equation_type_id);
-CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
+CREATE INDEX IF NOT EXISTS idx_classes_school_id ON classes(school_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+
+-- Заполнение ролей
+INSERT INTO roles (name, description) VALUES
+('student', 'Ученик'),
+('teacher', 'Учитель'),
+('admin', 'Администратор'),
+('director', 'Директор');
 
 -- Заполнение типов уравнений
 INSERT INTO equation_types 
@@ -153,7 +184,7 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_create_user_progress
 AFTER INSERT ON users
 FOR EACH ROW
-WHEN (NEW.role = 'student')
+WHEN (NEW.role_id = 1)
 EXECUTE FUNCTION create_user_progress_for_new_student();
 
 -- Функция для обработки добавления ученика в класс
@@ -192,7 +223,7 @@ BEGIN
     FROM student_classes sc
     JOIN classes c ON c.id = sc.class_id
     WHERE c.grade = NEW.class
-      AND EXISTS (SELECT 1 FROM users u WHERE u.id = sc.student_id AND u.role = 'student')
+      AND EXISTS (SELECT 1 FROM users u WHERE u.id = sc.student_id AND u.role_id = 1)
     ON CONFLICT (user_id, equation_type_id) DO NOTHING;
     
     RETURN NEW;

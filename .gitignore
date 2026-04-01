@@ -1,34 +1,31 @@
-# Бинарные файлы
-main
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Тестовые файлы
-*.test
+```
+# Compiled and build artifacts
+*.o
+*.obj
 *.out
 
-# Логи
+# Dependencies
+vendor/
+
+# Logs and temp files
 *.log
+*.tmp
 
-# IDE файлы
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Конфигурационные файлы
+# Environment
 .env
 .env.local
-config.local.yaml
+*.env.*
 
-# Сертификаты
-certs/
-*.pem
-*.key
+# Editors
+.vscode/
+.idea/
 
-# Временные файлы
-tmp/
-temp/
+# Go-specific
+*.exe
+*.dll
+*.so
+*.a
+*.dylib
+*.test
+*.prof
+```
