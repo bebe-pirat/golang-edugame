@@ -112,7 +112,7 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Успешный вход: %s (ID: %d, Роль: %s)\n",
 		user.Username, user.ID, user.Role)
 
-	switch user.Role {
+	switch user.Role.Name {
 	case "student":
 		fmt.Println("hello")
 		http.Redirect(w, r, "/home", http.StatusSeeOther)

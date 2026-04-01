@@ -68,7 +68,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err := h.userRepo.Register(username, password, role, fullName, classID)
+	user, err := h.userRepo.Register(username, password, role, fullName, &classID)
 	if err != nil {
 		classes, _ := h.userRepo.GetAllClasses()
 		data := map[string]interface{}{
@@ -96,7 +96,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Value:    sessionToken,
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
-		HttpOnly: true,                         
+		HttpOnly: true,
 	})
 
 	session, _ := store.Get(r, "app-session")
@@ -105,7 +105,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 	session.Values["role"] = user.Role
 	session.Save(r, w)
 
-	switch user.Role {
+	switch user.Role.Name {
 	case "student":
 		http.Redirect(w, r, "/home", http.StatusSeeOther)
 	case "teacher":

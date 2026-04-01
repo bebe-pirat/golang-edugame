@@ -6,12 +6,15 @@ import (
 	middleware "edugame/internal/midlleware"
 	"edugame/internal/repository"
 	"log"
+	"log/slog"
 	"time"
 
 	"encoding/gob"
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func init() {
@@ -20,7 +23,20 @@ func init() {
 }
 
 func main() {
-	err := database.InitDB()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+	err := godotenv.Load()
+	if err != nil {
+		logger.Info("unable to load .env")
+	}
+
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		slog.Error("failed to load connection string")
+		return
+	}
+
+	err = database.InitDB(connStr)
 	if err != nil {
 		fmt.Printf("Ошибка инициализации БД: %v\n", err)
 		return

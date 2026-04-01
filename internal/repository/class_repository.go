@@ -3,7 +3,6 @@ package repository
 import (
 	"database/sql"
 	"edugame/internal/entity"
-	"time"
 )
 
 type ClassRepository struct {

@@ -84,7 +84,7 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if user.Role != "student" {
+	if user.Role.Name != "student" {
 		http.Error(w, "Доступ запрещен. Только для учеников", http.StatusForbidden)
 		return
 	}

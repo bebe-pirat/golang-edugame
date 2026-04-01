@@ -26,8 +26,6 @@ type User struct {
 	RoleID       int       `json:"role_id"`
 	Role         *Role     `json:"role,omitempty"`
 	FullName     string    `json:"full_name"`
-	Email        string    `json:"email,omitempty"`
-	SchoolID     *int      `json:"school_id,omitempty"`
 	ClassID      *int      `json:"class_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }

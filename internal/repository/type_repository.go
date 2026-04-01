@@ -126,7 +126,7 @@ func (r *TypeRepository) GetTypeById(id int) (generator.EquationType, error) {
 		       operand1_min, operand1_max, operand2_min, operand2_max, 
 		       COALESCE(operand3_min, -1), COALESCE(operand3_max, -1), 
 		       COALESCE(operand4_min, -1), COALESCE(operand4_max, -1), 
-		       no_remainder, COALESCE(result_max, -1), is_available
+		       no_remainder, COALESCE(result_max, -1)
 		FROM equation_types
 		WHERE id = $1
 	`, id).Scan(
@@ -148,7 +148,6 @@ func (r *TypeRepository) GetTypeById(id int) (generator.EquationType, error) {
 
 		&t.No_remainder,
 		&t.Result_max,
-		&t.Is_available,
 	)
 
 	if err != nil {
@@ -170,7 +169,7 @@ func (r *TypeRepository) Create(et generator.EquationType) (*generator.EquationT
 		RETURNING id, class, name, description, operation, num_operands,
 		          operand1_min, operand1_max, operand2_min, operand2_max,
 		          operand3_min, operand3_max, operand4_min, operand4_max,
-		          no_remainder, result_max, is_available
+		          no_remainder, result_max
 	`
 
 	var newEt generator.EquationType
@@ -197,7 +196,6 @@ func (r *TypeRepository) Create(et generator.EquationType) (*generator.EquationT
 		&newEt.Operands[3][1],
 		&newEt.No_remainder,
 		&newEt.Result_max,
-		&newEt.Is_available,
 	)
 
 	if err != nil {
@@ -214,12 +212,12 @@ func (r *TypeRepository) Update(et generator.EquationType) (*generator.EquationT
 			class = $1, name = $2, description = $3, operation = $4, num_operands = $5,
 			operand1_min = $6, operand1_max = $7, operand2_min = $8, operand2_max = $9,
 			operand3_min = $10, operand3_max = $11, operand4_min = $12, operand4_max = $13,
-			no_remainder = $14, result_max = $15, is_available = $16
+			no_remainder = $14, result_max = $15
 		WHERE id = $17
 		RETURNING id, class, name, description, operation, num_operands,
 		          operand1_min, operand1_max, operand2_min, operand2_max,
 		          operand3_min, operand3_max, operand4_min, operand4_max,
-		          no_remainder, result_max, is_available
+		          no_remainder, result_max
 	`
 
 	var newEt generator.EquationType
@@ -228,7 +226,7 @@ func (r *TypeRepository) Update(et generator.EquationType) (*generator.EquationT
 		et.Operands[0][0], et.Operands[0][1], et.Operands[1][0], et.Operands[1][1],
 		nullIfMinusOne(et.Operands[2][0]), nullIfMinusOne(et.Operands[2][1]),
 		nullIfMinusOne(et.Operands[3][0]), nullIfMinusOne(et.Operands[3][1]),
-		et.No_remainder, nullIfMinusOne(et.Result_max), et.Is_available, et.ID,
+		et.No_remainder, nullIfMinusOne(et.Result_max), et.ID,
 	).Scan(
 		&newEt.ID,
 		&newEt.Class,
@@ -246,7 +244,6 @@ func (r *TypeRepository) Update(et generator.EquationType) (*generator.EquationT
 		&newEt.Operands[3][1],
 		&newEt.No_remainder,
 		&newEt.Result_max,
-		&newEt.Is_available,
 	)
 
 	if err != nil {
