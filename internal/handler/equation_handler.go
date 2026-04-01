@@ -6,7 +6,6 @@ import (
 	"edugame/internal/entity"
 	"edugame/internal/generator"
 	"edugame/internal/repository"
-	"edugame/internal/session"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -63,7 +62,7 @@ func NewEquationData(list []EquationWithID, class int) *EquationData {
 	}
 }
 
-func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request) {
+func (h *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request) {
 	session, err := h.store.Get(r, "app-session")
 	if err != nil {
 		log.Println("Ошибка получения сессии:", err)
@@ -77,7 +76,7 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	user, err := e.userRepo.GetByID(userId)
+	user, err := h.userRepo.GetByID(userId)
 	if err != nil {
 		log.Println("Ошибка получения пользователя:", err)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -89,19 +88,19 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	class, err := e.userRepo.GetStudentClass(userId)
+	class, err := h.userRepo.GetStudentClass(userId)
 	if err != nil {
 		log.Println("Ошибка получения класс: ", err)
 		return
 	}
-	listTypes, err := e.typeRepo.GetListTypes(class)
+	listTypes, err := h.typeRepo.GetListTypes(class)
 	if err != nil {
 		log.Println("Ошибка получения типов уравнений:", err)
 		http.Error(w, "Ошибка загрузки уравнений", http.StatusInternalServerError)
 		return
 	}
 
-	typeStats, err := e.userProgressRepo.GetUserTypeStatistics(userId)
+	typeStats, err := h.userProgressRepo.GetUserTypeStatistics(userId)
 	if err != nil {
 		log.Println("Ошибка получения статистики:", err)
 	}
@@ -109,7 +108,7 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 	log.Printf("Пользователь: %s (ID: %d, Класс: %d)\n", user.Username, userId, class)
 	log.Printf("Типы уравнений для %d класса: %d\n", class, len(listTypes))
 
-	listEquations, err := e.generateAdaptiveEquations(listTypes, typeStats, userId)
+	listEquations, err := h.generateAdaptiveEquations(listTypes, typeStats, userId)
 	if err != nil {
 		log.Println("Ошибка генерации уравнений:", err)
 		http.Error(w, "Ошибка генерации уравнений", http.StatusInternalServerError)
@@ -135,7 +134,7 @@ func (e *EquationHandler) EquationHandler(w http.ResponseWriter, r *http.Request
 
 	equationData := NewEquationData(listEquations, listEquations[0].Eq.Class)
 
-	e.tmpl.Execute(w, equationData)
+	h.tmpl.Execute(w, equationData)
 }
 
 // generateAdaptiveEquations - адаптивная генерация уравнений
@@ -311,7 +310,7 @@ func generateListOfEquations(types []generator.EquationType) ([]EquationWithID, 
 	return eqs, nil
 }
 
-func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Request) {
+func (h *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := h.store.Get(r, "equations-session")
 	correctAnswers, ok := session.Values["correct_answers"].(map[int]string)
 
@@ -342,7 +341,7 @@ func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Req
 	results := make([]map[string]interface{}, len(request.Answers))
 	correctCount := 0
 	attempts := make([]entity.Attempt, 0)
-	userId, err := getUserIdFromSession(r)
+	userId, err := h.getUserIdFromSession(r)
 
 	if err != nil {
 		log.Printf("ошибка получения id")
@@ -393,7 +392,7 @@ func (e *EquationHandler) CheckAnswersHandler(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(response)
 }
 
-func getUserIdFromSession(r *http.Request) (int, error) {
+func (h *EquationHandler) getUserIdFromSession(r *http.Request) (int, error) {
 	session, err := h.store.Get(r, "app-session")
 	if err != nil {
 		return 0, err

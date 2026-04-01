@@ -2,7 +2,7 @@ package handler
 
 import "net/http"
 
-func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+func (h *LoginHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	appSession, _ := h.store.Get(r, "app-session")
 	appSession.Options.MaxAge = -1
 	appSession.Save(r, w)

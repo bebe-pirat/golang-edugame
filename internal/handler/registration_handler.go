@@ -7,14 +7,17 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/gorilla/sessions"
 )
 
 type RegistrationHandler struct {
 	userRepo *repository.UserRepository
 	tmpl     *template.Template
+	store    *sessions.CookieStore
 }
 
-func NewRegistrationHandler(userRepo *repository.UserRepository) *RegistrationHandler {
+func NewRegistrationHandler(userRepo *repository.UserRepository, store *sessions.CookieStore) *RegistrationHandler {
 	tmpl := template.Must(template.ParseFiles(
 		"internal/templates/register.html",
 	))
@@ -22,6 +25,7 @@ func NewRegistrationHandler(userRepo *repository.UserRepository) *RegistrationHa
 	return &RegistrationHandler{
 		userRepo: userRepo,
 		tmpl:     tmpl,
+		store:    store,
 	}
 }
 

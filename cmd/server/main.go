@@ -125,12 +125,7 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-
-	log.Printf("Сервер запущен на порту %s\n", port)
-	log.Println("Публичные маршруты: /, /login, /register")
-	log.Println("Студентские маршруты: /home, /equation, /stats, /api/check")
-	log.Println("Учительские маршруты: /teacher_home, /teacher/class, /teacher/student")
-
+	
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}

@@ -106,7 +106,7 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	session, _ := h.store.Get(r, "app-session")
 	session.Values["user_id"] = user.ID
 	session.Values["username"] = user.Username
-	session.Values["role"] = user.Role
+	session.Values["role"] = user.Role.Name
 	session.Values["full_name"] = user.FullName
 
 	if err := session.Save(r, w); err != nil {
@@ -118,10 +118,8 @@ func (h *LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	switch user.Role.Name {
 	case "student":
-		fmt.Println("hello")
 		http.Redirect(w, r, "/home", http.StatusSeeOther)
 	case "teacher":
-		fmt.Println("1ghfdhf")
 		http.Redirect(w, r, "/teacher/class", http.StatusSeeOther)
 	case "director":
 		http.Redirect(w, r, "/director", http.StatusSeeOther)

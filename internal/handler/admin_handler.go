@@ -1,21 +1,21 @@
 package handler
 
 import (
-	"edugame/internal/repository"
 	"edugame/internal/entity"
 	"edugame/internal/generator"
+	"edugame/internal/repository"
 	"html/template"
 	"net/http"
 	"strconv"
 )
 
 type AdminHandler struct {
-	schoolRepo    *repository.SchoolRepository
-	classRepo     *repository.ClassRepository
-	userRepo      *repository.UserRepository
-	roleRepo      *repository.RoleRepository
-	typeRepo      *repository.TypeRepository
-	tmpl          *template.Template
+	schoolRepo *repository.SchoolRepository
+	classRepo  *repository.ClassRepository
+	userRepo   *repository.UserRepository
+	roleRepo   *repository.RoleRepository
+	typeRepo   *repository.TypeRepository
+	tmpl       *template.Template
 }
 
 func NewAdminHandler(
@@ -86,9 +86,9 @@ func (h *AdminHandler) Schools(w http.ResponseWriter, r *http.Request) {
 // SchoolForm - форма создания/редактирования школы
 func (h *AdminHandler) SchoolForm(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
-	
+
 	data := map[string]interface{}{
-		"Title": "Новая школа",
+		"Title":  "Новая школа",
 		"School": nil,
 	}
 
@@ -204,7 +204,7 @@ func (h *AdminHandler) Classes(w http.ResponseWriter, r *http.Request) {
 // ClassForm - форма создания/редактирования класса
 func (h *AdminHandler) ClassForm(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
-	
+
 	schools, _ := h.schoolRepo.GetAll()
 	teachers, _ := h.userRepo.GetUserByRoleType("teacher")
 
@@ -239,7 +239,7 @@ func (h *AdminHandler) ClassCreate(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	grade, _ := strconv.Atoi(r.FormValue("grade"))
 	teacherID, _ := strconv.Atoi(r.FormValue("teacher_id"))
-	
+
 	var schoolID *int
 	if schoolIDStr := r.FormValue("school_id"); schoolIDStr != "" {
 		id, _ := strconv.Atoi(schoolIDStr)
@@ -272,7 +272,7 @@ func (h *AdminHandler) ClassUpdate(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	grade, _ := strconv.Atoi(r.FormValue("grade"))
 	teacherID, _ := strconv.Atoi(r.FormValue("teacher_id"))
-	
+
 	var schoolID *int
 	if schoolIDStr := r.FormValue("school_id"); schoolIDStr != "" {
 		id, _ := strconv.Atoi(schoolIDStr)
@@ -316,16 +316,16 @@ func (h *AdminHandler) ClassDelete(w http.ResponseWriter, r *http.Request) {
 // Users - список всех пользователей
 func (h *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 	roleFilter := r.URL.Query().Get("role")
-	
+
 	var users []entity.User
 	var err error
-	
+
 	if roleFilter != "" {
 		users, err = h.userRepo.GetUserByRoleType(roleFilter)
 	} else {
 		users, err = h.userRepo.GetAllUsers()
 	}
-	
+
 	if err != nil {
 		http.Error(w, "Ошибка получения пользователей", http.StatusInternalServerError)
 		return
@@ -348,7 +348,7 @@ func (h *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 // UserForm - форма создания/редактирования пользователя
 func (h *AdminHandler) UserForm(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
-	
+
 	roles, _ := h.roleRepo.GetAll()
 	schools, _ := h.schoolRepo.GetAll()
 	classes, _ := h.classRepo.GetAll()
@@ -386,7 +386,7 @@ func (h *AdminHandler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	fullName := r.FormValue("fullname")
 	roleName := r.FormValue("role_id")
-	
+
 	var classID *int
 	if classIDStr := r.FormValue("class_id"); classIDStr != "" {
 		id, _ := strconv.Atoi(classIDStr)
@@ -420,7 +420,7 @@ func (h *AdminHandler) UserUpdate(w http.ResponseWriter, r *http.Request) {
 	fullName := r.FormValue("fullname")
 	email := r.FormValue("email")
 	roleID, _ := strconv.Atoi(r.FormValue("role_id"))
-	
+
 	var schoolID *int
 	if schoolIDStr := r.FormValue("school_id"); schoolIDStr != "" {
 		id, _ := strconv.Atoi(schoolIDStr)
@@ -480,7 +480,7 @@ func (h *AdminHandler) EquationTypes(w http.ResponseWriter, r *http.Request) {
 // EquationTypeForm - форма создания/редактирования типа уравнения
 func (h *AdminHandler) EquationTypeForm(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
-	
+
 	data := map[string]interface{}{
 		"Title": "Новый тип уравнения",
 		"Type":  nil,
@@ -513,7 +513,7 @@ func (h *AdminHandler) EquationTypeCreate(w http.ResponseWriter, r *http.Request
 	description := r.FormValue("description")
 	operation := r.FormValue("operation")
 	numOperands, _ := strconv.Atoi(r.FormValue("num_operands"))
-	
+
 	op1Min, _ := strconv.Atoi(r.FormValue("operand1_min"))
 	op1Max, _ := strconv.Atoi(r.FormValue("operand1_max"))
 	op2Min, _ := strconv.Atoi(r.FormValue("operand2_min"))
@@ -522,12 +522,19 @@ func (h *AdminHandler) EquationTypeCreate(w http.ResponseWriter, r *http.Request
 	op3Max, _ := strconv.Atoi(r.FormValue("operand3_max"))
 	op4Min, _ := strconv.Atoi(r.FormValue("operand4_min"))
 	op4Max, _ := strconv.Atoi(r.FormValue("operand4_max"))
-	
+
 	noRemainder := r.FormValue("no_remainder") == "on"
-	
+
 	resultMax, _ := strconv.Atoi(r.FormValue("result_max"))
 	if resultMax == 0 {
 		resultMax = -1
+	}
+
+	operands := []generator.OperandRange{
+		{Order: 1, MinValue: op1Min, MaxValue: op1Max},
+		{Order: 2, MinValue: op2Min, MaxValue: op2Max},
+		{Order: 3, MinValue: op3Min, MaxValue: op3Max},
+		{Order: 4, MinValue: op4Min, MaxValue: op4Max},
 	}
 
 	et := generator.EquationType{
@@ -536,14 +543,9 @@ func (h *AdminHandler) EquationTypeCreate(w http.ResponseWriter, r *http.Request
 		Description: description,
 		Operation:   operation,
 		NumOperands: numOperands,
-		Operands: [4][2]int{
-			{op1Min, op1Max},
-			{op2Min, op2Max},
-			{op3Min, op3Max},
-			{op4Min, op4Max},
-		},
-		No_remainder: noRemainder,
-		Result_max:   resultMax,
+		Operands:    operands,
+		NoRemainder: noRemainder,
+		ResultMax:   resultMax,
 	}
 
 	_, err := h.typeRepo.Create(et)
@@ -575,7 +577,7 @@ func (h *AdminHandler) EquationTypeUpdate(w http.ResponseWriter, r *http.Request
 	description := r.FormValue("description")
 	operation := r.FormValue("operation")
 	numOperands, _ := strconv.Atoi(r.FormValue("num_operands"))
-	
+
 	op1Min, _ := strconv.Atoi(r.FormValue("operand1_min"))
 	op1Max, _ := strconv.Atoi(r.FormValue("operand1_max"))
 	op2Min, _ := strconv.Atoi(r.FormValue("operand2_min"))
@@ -584,14 +586,20 @@ func (h *AdminHandler) EquationTypeUpdate(w http.ResponseWriter, r *http.Request
 	op3Max, _ := strconv.Atoi(r.FormValue("operand3_max"))
 	op4Min, _ := strconv.Atoi(r.FormValue("operand4_min"))
 	op4Max, _ := strconv.Atoi(r.FormValue("operand4_max"))
-	
+
 	noRemainder := r.FormValue("no_remainder") == "on"
-	
+
 	resultMax, _ := strconv.Atoi(r.FormValue("result_max"))
 	if resultMax == 0 {
 		resultMax = -1
 	}
 
+	operands := []generator.OperandRange{
+		{Order: 1, MinValue: op1Min, MaxValue: op1Max},
+		{Order: 2, MinValue: op2Min, MaxValue: op2Max},
+		{Order: 3, MinValue: op3Min, MaxValue: op3Max},
+		{Order: 4, MinValue: op4Min, MaxValue: op4Max},
+	}
 	et := generator.EquationType{
 		ID:          id,
 		Class:       class,
@@ -599,14 +607,9 @@ func (h *AdminHandler) EquationTypeUpdate(w http.ResponseWriter, r *http.Request
 		Description: description,
 		Operation:   operation,
 		NumOperands: numOperands,
-		Operands: [4][2]int{
-			{op1Min, op1Max},
-			{op2Min, op2Max},
-			{op3Min, op3Max},
-			{op4Min, op4Max},
-		},
-		No_remainder: noRemainder,
-		Result_max:   resultMax,
+		Operands:    operands,
+		NoRemainder: noRemainder,
+		ResultMax:   resultMax,
 	}
 
 	_, err = h.typeRepo.Update(et)
