@@ -2,8 +2,6 @@
 CREATE TABLE IF NOT EXISTS roles (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Таблица школ
@@ -13,62 +11,57 @@ CREATE TABLE IF NOT EXISTS schools (
     address TEXT,
     phone VARCHAR(50),
     email VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Таблица диапазонов операндов (вынесена в отдельную таблицу)
+-- 3. Таблица диапазонов операндов 
 CREATE TABLE IF NOT EXISTS operand_ranges (
     id SERIAL PRIMARY KEY,
     equation_type_id INTEGER NOT NULL REFERENCES equation_types(id) ON DELETE CASCADE,
-    operand_order INTEGER NOT NULL CHECK (operand_order >= 1), -- Порядок операнда (1, 2, 3, ...)
-    min_value INTEGER DEFAULT 0,
-    max_value INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    operand_order INTEGER NOT NULL CHECK (operand_order >= 1), 
+    min_value INTEGER DEFAULT 0 NOT NULL,
+    max_value INTEGER DEFAULT 0 NOT NULL,
     UNIQUE(equation_type_id, operand_order)
 );
 
--- 3. Таблица типов уравнений (обновленная структура)
+-- 4. Таблица типов уравнений 
 CREATE TABLE IF NOT EXISTS equation_types (
     id SERIAL PRIMARY KEY,
-    class INTEGER NOT NULL, -- 3, 4 и т.д.
-    name VARCHAR(100) NOT NULL, -- Человекочитаемое название
-    description TEXT, -- Например: "Сложение/вычитание двузначных с однозначными"
+    class INTEGER NOT NULL, 
+    name VARCHAR(100) NOT NULL,
+    description TEXT, 
     
     -- Поля для генерации
     operation VARCHAR(10) NOT NULL, -- '+', '-', '*', '/', '+-' (значит, случайный выбор + или -)
-    num_operands INTEGER NOT NULL DEFAULT 2, -- Количество чисел в выражении (2, 3, 4, ...)
+    num_operands INTEGER NOT NULL DEFAULT 2, 
     
     -- Специальные условия
-    no_remainder BOOLEAN DEFAULT FALSE, -- Для деления без остатка
+    no_remainder BOOLEAN DEFAULT FALSE,
     result_max INTEGER DEFAULT NULL, -- Ограничение на результат (например, "до 90")
-    
-    is_available BOOLEAN DEFAULT TRUE, -- Доступен ли тип уравнений
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Таблица пользователей
+-- 5. Таблица пользователей
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
+    username VARCHAR(200) UNIQUE NOT NULL,
+    fullname VARCHAR(256) NOT NULL,
     password_hash VARCHAR(100) NOT NULL,
     role_id INTEGER NOT NULL REFERENCES roles(id) DEFAULT 1,
-    fullname VARCHAR(256) NOT NULL,
+    school_id INT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    blocked BOOLEAN NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Таблица классов
+-- 6. Таблица классов
 CREATE TABLE IF NOT EXISTS classes (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     grade INTEGER,
     teacher_id INTEGER REFERENCES users(id),
-    school_id INTEGER REFERENCES schools(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Связь учеников с классами
+-- 7. Связь учеников с классами
 CREATE TABLE IF NOT EXISTS student_classes (
     student_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
@@ -76,52 +69,43 @@ CREATE TABLE IF NOT EXISTS student_classes (
     PRIMARY KEY (student_id, class_id)
 );
 
--- 6. Таблица попыток
+-- 9. Таблица попыток
 CREATE TABLE IF NOT EXISTS attempts (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
 
     -- Тип уравнения 
-    equation_type_id INTEGER REFERENCES equation_types(id),
+    equation_type_id INTEGER REFERENCES equation_types(id) ON DELETE SET NULL,
     
     -- Само уравнение и ответы
     equation_text TEXT NOT NULL,
     correct_answer VARCHAR(50) NOT NULL,
     user_answer VARCHAR(50),
-    is_correct BOOLEAN,
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Таблица прогресса пользователя по типам уравнений
+-- 10. Таблица прогресса пользователя по типам уравнений
 CREATE TABLE IF NOT EXISTS user_progress (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    equation_type_id INTEGER REFERENCES equation_types(id),
+    equation_type_id INTEGER REFERENCES equation_types(id) ON DELETE SET NULL,
     
     -- Статистика по конкретному типу
     attempts_count INTEGER DEFAULT 0,
     correct_count INTEGER DEFAULT 0,
   
-    -- Разблокирован ли этот тип для пользователя
-    is_unlocked BOOLEAN DEFAULT FALSE,
-    
-    -- Когда впервые открыли и последняя активность
-    first_unlocked_at TIMESTAMP,
+    -- Последняя активность
     last_attempt_at TIMESTAMP,
     
-    UNIQUE(user_id, equation_type_id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    UNIQUE(user_id, equation_type_id)
 );
 
--- 8. Таблица сессий для авторизации
+-- 11. Таблица сессий для авторизации
 CREATE TABLE IF NOT EXISTS user_sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    session_token VARCHAR(100) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    expires_at TIMESTAMP NOT NULL
 );
 
 -- Индексы для производительности

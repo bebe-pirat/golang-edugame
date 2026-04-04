@@ -396,46 +396,7 @@ func (r *UserRepository) GetAllClasses() ([]entity.Class, error) {
 	return classes, nil
 }
 
-// Получение классов учителя
-func (r *UserRepository) GetTeacherClasses(teacherID int) ([]entity.Class, error) {
-	rows, err := r.db.Query(`
-        SELECT id, name, grade, teacher_id, school_id, created_at 
-        FROM classes 
-        WHERE teacher_id = $1
-        ORDER BY grade, name
-    `, teacherID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var classes []entity.Class
-	for rows.Next() {
-		var class entity.Class
-		var schoolID sql.NullInt64
-
-		err := rows.Scan(
-			&class.ID, &class.Name, &class.Grade,
-			&class.TeacherID, &schoolID, &class.CreatedAt,
-		)
-		if err != nil {
-			continue
-		}
-
-		if schoolID.Valid {
-			sid := int(schoolID.Int64)
-			class.SchoolID = &sid
-		}
-
-		classes = append(classes, class)
-	}
-
-	return classes, nil
-}
-
-// Вспомогательная функция для генерации токена
 func generateToken() (string, error) {
-	// Используем crypto/rand для безопасной генерации
 	bytes := make([]byte, 32)
 	_, err := rand.Read(bytes)
 	if err != nil {
@@ -444,11 +405,9 @@ func generateToken() (string, error) {
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }
 
-// internal/repository/user_repository.go
 func (r *UserRepository) GetStudentClass(studentID int) (int, error) {
 	var classGrade int
 
-	// Получаем класс ученика через таблицу student_classes
 	query := `
         SELECT c.grade 
         FROM classes c
@@ -460,7 +419,6 @@ func (r *UserRepository) GetStudentClass(studentID int) (int, error) {
 	err := r.db.QueryRow(query, studentID).Scan(&classGrade)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// Ученик не привязан к классу
 			return 0, fmt.Errorf("ученик не привязан к классу")
 		}
 		return 0, err
